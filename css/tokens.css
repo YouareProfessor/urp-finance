@@ -1,0 +1,32 @@
+/* URP 재무 보드 — 디자인 토큰
+   기준: 소개서 웹(urp-sogaeso) 팔레트와 통일. 차트 팔레트는 CVD 검증 통과본(2026-07-15). */
+:root{
+  /* 종이·잉크 (소개서 그대로) */
+  --paper:#F4F1EA; --paper2:#ECE7DB; --card:#FBF9F4;
+  --ink:#1B1712; --ink2:#57503F; --muted:#938A79; --line:#E2DBCC;
+  --dark:#141310; --dark2:#1D1A15; --dark3:#262119;
+  --ondark:#F1ECE1; --ondark2:#A69D8B; --line-d:#2E2A22;
+
+  /* 브랜드 */
+  --brand:#EC5E2A; --brand-d:#FF7A44; --brand-deep:#C64A1B;
+  --brand-soft:#F6EADF; --gold:#B58A3E; --gold-d:#D8A85C;
+
+  /* 손익 의미색 (라벨·부호와 항상 병기) */
+  --pos:#008E68; --pos-soft:#E3F0EA;
+  --neg:#B3362A; --neg-soft:#F6E5E1;
+
+  /* 차트 카테고리 — 고정 순서, 순환 금지 */
+  --chart-1:#E85422; --chart-2:#008E68; --chart-3:#3E6ACC;
+  --chart-4:#A87B24; --chart-5:#B03A5B;
+  --chart-cost:#8A8072; /* 지출 막대(무채 웜그레이) */
+
+  /* 서체 */
+  --f:"Pretendard Variable","Pretendard",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --serif:"Nanum Myeongjo","Apple SD Gothic Neo",serif;
+
+  /* 리듬 */
+  --e:cubic-bezier(.19,.72,.11,1);
+  --sh:0 30px 60px -34px rgba(27,23,18,.30), 0 10px 24px -16px rgba(27,23,18,.14);
+  --sh-s:0 8px 22px -14px rgba(27,23,18,.24);
+  --r:20px; --r-s:12px;
+}

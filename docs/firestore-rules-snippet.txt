@@ -1,0 +1,6 @@
+// URP 재무 보드 (fin_rooms) — 비밀번호 SHA-256 해시(64자 hex)가 방 경로. 경로 비밀이 보안 경계 (meus_rooms와 동일 모델).
+// ⚠️ 절대 fin_rooms/{room} 최상위 문서를 만들지 말 것(방 목록 열람 차단 유지). 데이터는 전부 한 단계 아래 컬렉션에.
+// 단일 세그먼트 와일드카드만 사용 — {document=**}를 쓰면 fin_rooms 목록 조회가 열릴 수 있음.
+match /fin_rooms/{room}/{coll}/{doc} {
+  allow read, write: if room.matches('^[a-f0-9]{64}$');
+}

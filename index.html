@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>URP 재무 보드</title>
+<meta name="theme-color" content="#141310" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23EC5E2A'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='19' font-weight='900' fill='white' text-anchor='middle'%3E₩%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
+<link rel="stylesheet" href="css/tokens.css?v=1">
+<link rel="stylesheet" href="css/app.css?v=1">
+</head>
+<body>
+
+<!-- ============ 잠금 화면 ============ -->
+<div id="lock">
+  <div class="inner">
+    <div class="mk">₩</div>
+    <h1>URP 재무 보드</h1>
+    <p class="serif">숫자가 우리의 다음 걸음을 알려줍니다.<br>팀 비밀번호를 입력해 주세요.</p>
+    <form id="lockForm">
+      <input type="password" id="pwInput" placeholder="팀 비밀번호" autocomplete="current-password" />
+      <div class="msg" id="lockMsg"></div>
+      <button class="btn primary" type="submit" style="justify-content:center;">
+        열기 <span class="arr">→</span>
+      </button>
+    </form>
+    <div class="setup-note" id="setupNote" hidden>
+      <b>새 보드 만들기 모드</b><br>
+      이 비밀번호로 새 재무 보드를 만듭니다. 팀과 공유할 비밀번호를 신중히 정한 뒤 제출하세요.
+      (긴 문장형 비밀번호를 추천합니다)
+    </div>
+  </div>
+</div>
+
+<!-- ============ 앱 ============ -->
+<div id="app" hidden>
+<header>
+  <div class="bar">
+    <div class="brand">
+      <div class="mk">₩</div>
+      <div class="tx">URP 재무 보드<i>니가 교수</i></div>
+    </div>
+    <div class="head-right">
+      <div class="sync" id="syncDot"><span class="dot"></span><span id="syncTx">연결 중</span></div>
+      <button class="who-chip" id="whoChip">이름 선택</button>
+      <button class="lock-btn" id="lockBtn" title="비밀번호 저장을 지우고 잠급니다">잠그기</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="dashboard" class="on">대시보드</button>
+  <button data-tab="simulator">수익 시뮬레이터</button>
+  <button data-tab="expenses">고정지출</button>
+  <button data-tab="pnl">월별 손익표</button>
+  <button data-tab="excel">엑셀</button>
+</nav>
+
+<main class="wrap">
+
+  <!-- 대시보드 -->
+  <section class="tab on" id="tab-dashboard">
+    <div class="sect-head">
+      <span class="eyebrow">Overview</span>
+      <h2>오늘의 재무 한눈에</h2>
+      <p class="sub" id="dashSub"></p>
+    </div>
+    <div class="kpis" id="kpiRow"></div>
+    <div class="dash-lower">
+      <div class="card deep">
+        <h3 style="font-size:16px;">12개월 전망 <span class="mini-note" id="dashChartScn"></span></h3>
+        <div class="chart-box" id="dashChart" style="margin-top:14px;"></div>
+        <div class="legend" id="dashLegend"></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;">지출 상위 카테고리</h3>
+        <div id="dashTopCats" style="margin-top:14px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 시뮬레이터 -->
+  <section class="tab" id="tab-simulator">
+    <div class="sect-head">
+      <span class="eyebrow">Revenue Simulator</span>
+      <h2>수익 시뮬레이터</h2>
+      <p class="sub">인당 가격·사용자 수·전환율을 움직여 보세요. 저장은 자동이고, 팀 모두에게 실시간으로 보입니다.</p>
+    </div>
+    <div class="scn-chips" id="scnChips"></div>
+    <div class="cmp-bar">
+      <button class="btn sm" id="cmpToggle">비교 모드</button>
+      <span class="mini-note" id="cmpNote"></span>
+    </div>
+    <div class="sim-layout">
+      <div class="card" id="simLeft"></div>
+      <div class="sim-right" id="simRight"></div>
+    </div>
+  </section>
+
+  <!-- 고정지출 -->
+  <section class="tab" id="tab-expenses">
+    <div class="sect-head">
+      <span class="eyebrow">Fixed Costs</span>
+      <h2>고정지출</h2>
+      <p class="sub">매달 나가는 돈을 등록해 두면 손익표와 런웨이에 자동 반영됩니다. 인건비는 합계 한 줄로만 관리합니다.</p>
+    </div>
+    <div class="dash-lower" style="margin-top:0;">
+      <div class="card deep">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <h3 style="font-size:16px;">지출 목록 <span class="mini-note" id="expTotalNote"></span></h3>
+          <button class="btn primary sm" id="expAddBtn">+ 지출 추가</button>
+        </div>
+        <div class="tbl-wrap" style="margin-top:12px;"><table id="expTable"></table></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;">카테고리 비중</h3>
+        <div class="chart-box" id="expDonut" style="margin-top:14px;"></div>
+        <div class="legend" id="expLegend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 손익표 -->
+  <section class="tab" id="tab-pnl">
+    <div class="sect-head">
+      <span class="eyebrow">Profit &amp; Loss</span>
+      <h2>월별 손익표</h2>
+      <p class="sub">추정과 실적을 한 표에서 봅니다. 실제 매출이 생기면 해당 월을 클릭해 실적을 입력하세요.</p>
+    </div>
+    <div class="cmp-bar">
+      <span class="mini-note">시나리오</span><span id="pnlScnSel"></span>
+      <span class="mini-note" style="margin-left:12px;">기간</span><span id="pnlHorizonSel"></span>
+    </div>
+    <div class="card deep">
+      <div class="chart-box" id="pnlChart"></div>
+      <div class="legend" id="pnlLegend"></div>
+    </div>
+    <div class="card" style="margin-top:18px;">
+      <div class="tbl-wrap"><table id="pnlTable"></table></div>
+    </div>
+  </section>
+
+  <!-- 엑셀 -->
+  <section class="tab" id="tab-excel">
+    <div class="sect-head">
+      <span class="eyebrow">Excel</span>
+      <h2>엑셀 연동</h2>
+      <p class="sub">보고서는 내보내고, 기존 지출 내역은 불러오세요.</p>
+    </div>
+    <div class="excel-grid">
+      <div class="card deep">
+        <h3 style="font-size:16px;">리포트 내보내기</h3>
+        <p class="mini-note" style="margin-top:8px;">월별손익 · 고정지출 · 시나리오 3개 시트로 저장됩니다.</p>
+        <div style="margin-top:18px;">
+          <button class="btn primary" id="exportBtn">엑셀로 내보내기 <span class="arr">↓</span></button>
+        </div>
+      </div>
+      <div class="card deep">
+        <h3 style="font-size:16px;">지출 내역 가져오기</h3>
+        <p class="mini-note" style="margin-top:8px;">.xlsx 파일에서 고정지출을 불러옵니다. 인건비 행은 합계 한 줄로 합산됩니다.</p>
+        <div class="drop" id="dropZone" style="margin-top:18px;">
+          파일을 끌어다 놓거나 클릭해서 선택
+          <input type="file" id="fileInput" accept=".xlsx,.xls" hidden />
+        </div>
+        <div id="importArea"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div><!-- /app -->
+
+<!-- ============ 모달 ============ -->
+<div class="overlay" id="expModal">
+  <div class="modal">
+    <h3 id="expModalTitle">지출 추가</h3>
+    <div class="fld"><label>항목 이름</label><input id="emName" placeholder="예: Claude Team 구독" /></div>
+    <div class="fld-row">
+      <div class="fld"><label>카테고리</label><select id="emCat"></select></div>
+      <div class="fld"><label>금액 (원)</label><input id="emAmount" type="number" min="0" step="1000" placeholder="0" /></div>
+    </div>
+    <div class="fld-row">
+      <div class="fld"><label>주기</label><select id="emCycle"><option value="monthly">매달</option><option value="yearly">연 1회 (월 환산)</option></select></div>
+      <div class="fld"><label>메모</label><input id="emMemo" placeholder="선택" /></div>
+    </div>
+    <div class="fld-row">
+      <div class="fld"><label>시작 월 (선택)</label><input id="emStart" type="month" /></div>
+      <div class="fld"><label>종료 월 (선택)</label><input id="emEnd" type="month" /></div>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" data-close>취소</button>
+      <button class="btn primary" id="emSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="whoModal">
+  <div class="modal">
+    <h3>내 이름을 선택하세요</h3>
+    <p class="mini-note" style="margin-bottom:16px;">수정한 사람 표시에 사용됩니다.</p>
+    <div class="name-grid" id="nameGrid"></div>
+  </div>
+</div>
+
+<div class="overlay" id="scnModal">
+  <div class="modal">
+    <h3 id="scnModalTitle">시나리오</h3>
+    <div class="fld"><label>이름</label><input id="smName" placeholder="예: 미국 구독안" /></div>
+    <div class="fld-row">
+      <div class="fld"><label>시작 월</label><input id="smStart" type="month" /></div>
+      <div class="fld"><label>기간 (개월)</label><select id="smMonths"><option>12</option><option selected>24</option></select></div>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" data-close>취소</button>
+      <button class="btn primary" id="smSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="chartTip"></div>
+<div id="toast"></div>
+
+<!-- Firebase compat SDK (ca-trip 패턴) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+<script src="js/calc.js?v=1"></script>
+<script src="js/firebase.js?v=1"></script>
+<script src="js/auth.js?v=1"></script>
+<script src="js/store.js?v=1"></script>
+<script src="js/charts.js?v=1"></script>
+<script src="js/xlsx.js?v=1"></script>
+<script src="js/ui-dashboard.js?v=1"></script>
+<script src="js/ui-simulator.js?v=1"></script>
+<script src="js/ui-expenses.js?v=1"></script>
+<script src="js/ui-pnl.js?v=1"></script>
+<script src="js/ui-excel.js?v=1"></script>
+<script src="js/main.js?v=1"></script>
+</body>
+</html>
