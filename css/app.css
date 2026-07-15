@@ -213,7 +213,7 @@ tr:hover .row-actions{opacity:1;}
 /* ---------- 보기 전용 모드 ---------- */
 body.ro #expAddBtn, body.ro .row-actions, body.ro #scnAdd, body.ro #streamAdd, body.ro #segAdd,
 body.ro #scnRename, body.ro #scnClone, body.ro #scnDel, body.ro [data-delstream], body.ro [data-delseg],
-body.ro [data-cur], body.ro #dropZone, body.ro #costGrowthCtl{display:none !important;}
+body.ro [data-cur], body.ro #dropZone{display:none !important;}
 body.ro #whoChip{pointer-events:none; background:var(--paper2);}
 body.ro .param input, body.ro #apiTech input, body.ro #apiSegments input,
 body.ro .stream-card .st-head input, body.ro #cashEdit{pointer-events:none; opacity:.6;}

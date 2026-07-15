@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>URP 수익 로직 설명서</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23EC5E2A'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='19' font-weight='900' fill='white' text-anchor='middle'%3E₩%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
+<link rel="stylesheet" href="css/tokens.css?v=6">
+<style>
+*{box-sizing:border-box;}
+body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--f); line-height:1.78; letter-spacing:-.014em; word-break:keep-all; overflow-wrap:break-word;}
+body::after{content:""; position:fixed; inset:0; z-index:9; pointer-events:none; opacity:.4; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E");}
+.wrap{max-width:760px; margin:0 auto; padding:70px 26px 120px;}
+h1{font-size:clamp(28px,5vw,40px); line-height:1.2; letter-spacing:-.04em; margin:16px 0 0;}
+h2{font-size:22px; letter-spacing:-.03em; margin:76px 0 18px; padding-top:22px; border-top:1px solid var(--line);}
+h3{font-size:16.5px; margin:30px 0 10px;}
+p{margin:0 0 14px;}
+.eyebrow{display:inline-flex; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:4px 13px; font-size:10.5px; font-weight:700; letter-spacing:.18em; color:var(--ink2); text-transform:uppercase;}
+.serif{font-family:var(--serif); font-size:clamp(17px,2.5vw,20px); color:var(--ink2); line-height:1.8;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:24px 26px; box-shadow:var(--sh-s); margin:22px 0;}
+.formula{font-size:clamp(15px,2.4vw,18px); font-weight:700; text-align:center; padding:20px 14px; line-height:2;}
+.formula .op{color:var(--muted); font-weight:400; margin:0 8px;}
+.formula .box{display:inline-block; background:var(--brand-soft); color:var(--brand-deep); border-radius:10px; padding:3px 12px;}
+.formula .box.g{background:var(--pos-soft); color:var(--pos);}
+.formula .box.r{background:var(--neg-soft); color:var(--neg);}
+table{width:100%; border-collapse:collapse; font-size:14px; margin:14px 0;}
+th{font-size:12px; color:var(--muted); text-align:right; padding:9px 10px; border-bottom:1px solid var(--line); font-weight:700; white-space:nowrap;}
+td{padding:10px; border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent); text-align:right; font-variant-numeric:tabular-nums;}
+th:first-child,td:first-child{text-align:left;}
+tr.hl td{background:var(--brand-soft); font-weight:700;}
+.pos{color:var(--pos); font-weight:700;} .neg{color:var(--neg); font-weight:700;}
+.note{font-size:13px; color:var(--muted); line-height:1.7;}
+.q{border-left:3px solid var(--brand); padding:4px 0 4px 18px; margin:26px 0; font-family:var(--serif); font-size:17px; color:var(--ink2);}
+a{color:var(--brand-deep);}
+.tag{display:inline-block; border-radius:999px; padding:2px 10px; font-size:11.5px; font-weight:700; background:var(--paper2); color:var(--ink2); margin-right:6px;}
+.back{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:9px 18px; font-size:13.5px; font-weight:700; color:var(--ink); text-decoration:none; margin-top:40px;}
+ol,ul{padding-left:22px; margin:0 0 14px;}
+li{margin-bottom:7px;}
+.tbl-wrap{overflow-x:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="eyebrow">URP Finance · Revenue Logic</span>
+<h1>우리 수익 로직, 솔직한 설명서</h1>
+<p class="serif" style="margin-top:14px;">"열정 학생만 있으면 인당 3만 원이 나가는데, 이 구조로 가도 되나?" — 대표님의 이 질문에 정면으로 답하는 문서입니다. 2026-07-16 기준.</p>
+
+<h2>1. 돈이 흐르는 공식 — 딱 한 줄</h2>
+<div class="card formula">
+  <span class="box g">매출</span><span class="op">−</span><span class="box">고정비</span><span class="op">−</span><span class="box r">유저 수 × 인당 API 원가</span><span class="op">−</span><span class="box r">결제 수수료</span><span class="op">=</span><span class="box g">순손익</span>
+</div>
+<p>고정비(구독료·서버·인건비)는 유저가 늘어도 그대로지만, <b>API 원가는 유저가 쓸 때마다 나갑니다.</b> 전통 소프트웨어는 한 번 만들면 복사 비용이 0이라 유저가 늘수록 이익률이 좋아지는데, AI 앱은 학생이 문제를 풀 때마다 진짜 돈(토큰)이 나가요. 이게 이 사업의 근본 특징이고, 재무 보드가 "API 원가"를 별도 탭으로 둔 이유입니다.</p>
+
+<h2>2. 매출 로직</h2>
+<div class="card formula">
+  <span class="box g">인당 가격</span><span class="op">×</span><span class="box g">사용자 수</span><span class="op">×</span><span class="box g">유료 전환율</span><span class="op">×</span><span class="box g">(1+월 성장률)<sup>개월</sup></span>
+</div>
+<p>예: 가격 19,900원 × 잠재 사용자 1,000명 × 전환율 30% = 유료 300명, 월 매출 597만 원. 여기에 월 성장률(MoM)이 매달 복리로 붙습니다. 달러 수익원은 환율(기본 1,400원)로 환산돼 합산됩니다.</p>
+<p class="note">전환율 30%는 꽤 공격적인 가정입니다. 무료→유료 전환은 잘하는 앱이 2~10% 수준이고, 30%는 "체험판을 깔 만큼 관심 있는 사람" 기준일 때만 현실적입니다. 시나리오 짤 때 전환율을 낮춘 보수안을 꼭 함께 두세요.</p>
+
+<h2>3. 원가 로직 — 문제 1개 = 54.18원의 근거</h2>
+<p>2026-07-14 실측(기하 진단 1건) 기준, 문제 하나를 AI가 채점·지도하는 데 드는 토큰과 비용:</p>
+<div class="tbl-wrap"><table>
+<thead><tr><th>항목</th><th>토큰</th><th>단가 (USD/100만)</th><th>비용</th></tr></thead>
+<tbody>
+<tr><td>신규 입력 (문제·학생 답안)</td><td>1,400</td><td>$3.00</td><td>$0.0042</td></tr>
+<tr><td>캐시 읽기 (프롬프트 재사용)</td><td>3,000</td><td>$0.30</td><td>$0.0009</td></tr>
+<tr><td>출력 (채점·설명)</td><td>950</td><td>$15.00</td><td>$0.01425</td></tr>
+<tr class="hl"><td>호출 1회 합계</td><td>5,350</td><td></td><td>$0.01935 = 27.09원</td></tr>
+<tr><td>× 후속 호출 1회 (재질문·힌트)</td><td>10,700</td><td></td><td><b>문제당 54.18원</b></td></tr>
+</tbody>
+</table></div>
+<p>시간당 8문제를 푼다고 보면 <b>시간당 토큰 85,600개, 시간당 약 433원</b>이 나갑니다. 이 숫자는 보드의 "API 원가" 탭에서 전부 조절할 수 있고, 표본이 1건뿐이라 측정로그가 20건 이상 쌓이면 갈아끼워야 합니다.</p>
+
+<h2>4. 세그먼트 — 왜 "섞어서" 계산하나</h2>
+<p>구독 사업은 본질적으로 <b>보험과 같은 구조</b>입니다. 헬스장이 월 회비로 굴러가는 이유는 등록만 하고 안 오는 회원이 많이 오는 회원을 받쳐주기 때문이죠. AI 구독도 같습니다 — 가볍게 쓰는 다수가 헤비 유저의 원가를 받쳐줍니다. 그래서 인당 원가는 한 명 기준이 아니라 <b>유형별 비율의 가중평균</b>으로 봐야 합니다.</p>
+<h3>업계 데이터가 말하는 실제 사용 강도</h3>
+<ul>
+<li>교육 앱의 DAU/MAU(한 달 중 실제 접속하는 날의 비율)는 <b>15~25%</b> — 평균적인 사용자는 <b>한 달에 4.5~7.5일</b>만 씁니다. 듀오링고·캄 같은 최상위 앱이 25%를 넘는 수준이에요. (<a href="https://uxcam.com/blog/mobile-app-engagement-benchmarks/">UXCam 벤치마크</a>, <a href="https://www.metrichq.org/saas/dau-mau-ratio/">MetricHQ</a>)</li>
+<li>즉 "매일 1시간, 주 5일"(우리의 '일반 학생')조차 업계 기준으로는 이미 <b>상위권 사용자</b>입니다.</li>
+<li>다만 주의: 우리는 <b>부모가 공부하라고 돈을 내주는</b> 시험 대비 앱이라, 일반 앱보다 사용 강도가 높게 나올 겁니다. 그래서 아래 추천 비율은 업계 평균보다 무겁게(보수적으로) 잡았습니다.</li>
+</ul>
+
+<h2>5. 그래서 비율을 어떻게 잡을까 — 추천안</h2>
+<p>세그먼트를 4개로 나누고(보드에서 "유형 추가"로 라이트를 하나 만들면 됩니다), 두 가지 안을 기본·스트레스로 두는 걸 추천합니다.</p>
+<div class="tbl-wrap"><table>
+<thead><tr><th>유형</th><th>사용량</th><th>인당 월 원가</th><th>기본안 비율</th><th>스트레스안 비율</th></tr></thead>
+<tbody>
+<tr><td>열정 학생</td><td>3시간 × 주 6일</td><td>33,899원</td><td>10%</td><td>20%</td></tr>
+<tr><td>일반 학생</td><td>1시간 × 주 5일</td><td>9,416원</td><td>25%</td><td>40%</td></tr>
+<tr><td>라이트 학생</td><td>1시간 × 주 2일</td><td>3,767원</td><td>35%</td><td>30%</td></tr>
+<tr><td>유령 구독자</td><td>0</td><td>0원</td><td>30%</td><td>10%</td></tr>
+<tr class="hl"><td>가중평균 인당 원가</td><td></td><td></td><td>7,062원</td><td>11,676원</td></tr>
+<tr><td>구독 19,900원 대비 원가율</td><td></td><td></td><td class="pos">35% (건강)</td><td class="neg">59% (빠듯)</td></tr>
+<tr><td>인당 공헌이익 (수수료 3.3% 차감 후)</td><td></td><td></td><td class="pos">+12,181원</td><td class="neg">+7,567원</td></tr>
+</tbody>
+</table></div>
+<p>기본안이면 매출총이익률이 약 65%로, AI 앱 업계 평균(50~60%, <a href="https://a16z.com/questioning-margins-is-a-boring-cliche/">a16z</a>)보다 좋은 편입니다. 스트레스안(부모가 돈 낸 만큼 애들이 정말 열심히 쓰는 경우)에서도 흑자는 유지되지만 여유가 얇아집니다.</p>
+
+<h2>6. 대표님 질문에 정면으로: "이 구조로 가도 돼?"</h2>
+<p class="q">"열정 학생 100%로 잡으면 인당 3만 원인데, 이 구조로 잡고 가도 돼?"</p>
+<p><b>그대로는 안 됩니다. 대표님 의구심이 정확합니다.</b> 열정 학생 한 명의 원가(33,899원)는 구독가(19,900원)를 넘으므로, 무제한 요금제에서 헤비 유저는 <b>쓰면 쓸수록 우리가 돈을 내주는 구조</b>입니다. 이건 우리만의 문제가 아니라 업계 공통입니다 — GitHub Copilot은 월 $10 요금제에서 헤비 유저당 <b>월 $20 이상 적자</b>를 봤고(<a href="https://www.softwareseni.com/why-ai-gross-margins-are-so-much-lower-than-saas-and-what-that-means-for-your-business/">SoftwareSeni</a>), OpenAI조차 2026년 1분기 영업이익률이 −122%였습니다(<a href="https://www.wheresyoured.at/news-openai-had-a-negative-122-non-gaap-operating-margin-in-q1-2026-and-chatgpt-growth-has-stalled/">Where's Your Ed At</a>).</p>
+<p>혼합 비율이 지켜지면 전체로는 남는 장사지만, 두 가지 위험이 있습니다:</p>
+<ol>
+<li><b>역선택</b> — 돈 내는 사람일수록 열심히 쓸 확률이 높습니다. 특히 우리는 부모가 결제하는 구조라 유령 비율이 일반 앱보다 낮게 나올 수 있어요.</li>
+<li><b>천장 없음</b> — 상한이 없으면 소수의 초헤비 유저가 원가를 무한정 키울 수 있습니다.</li>
+</ol>
+<h3>그래서 지렛대 4개를 같이 가져가야 합니다</h3>
+<ol>
+<li><b>공정 사용 상한(fair use)</b> — 예: 하루 30문제 또는 월 400문제까지, 초과분은 속도 제한. 열정 학생 원가의 천장이 생기며 최악 시나리오가 사라집니다. <span class="tag">가장 시급</span></li>
+<li><b>캐시 극대화</b> — 실측에서도 캐시 읽기 토큰(3,000개)은 신규 입력의 1/10 가격입니다. 프롬프트 구조를 캐시 친화적으로 만들수록 원가가 뚝 떨어집니다.</li>
+<li><b>모델 라우팅</b> — 재질문·힌트 같은 가벼운 후속 호출을 Haiku(단가 1/3)로 돌리면 후속 호출분 원가가 크게 줄어요.</li>
+<li><b>요금제 계층화</b> — 헤비 유저에게는 더 받으면 됩니다 (예: 스탠다드 19,900 / 무제한 39,900). 열정 학생이 손해가 아니라 최고 고객이 됩니다.</li>
+</ol>
+<p>보드의 "토큰 절감률" 슬라이더가 지렛대 2·3을 합친 숫자입니다. <b>절감률 40%면 열정 학생 원가가 20,339원으로 구독가 근처까지 내려오고, 50%면 16,950원으로 흑자권</b>에 들어옵니다 — 이게 기술팀(지민·정범)의 정량 목표가 될 수 있습니다.</p>
+
+<h2>7. 지금 우리가 모르는 것 (정직하게)</h2>
+<ul>
+<li>문제당 원가 실측이 <b>1건</b>뿐 — 측정로그를 유형별 20건 이상 쌓으면 이 문서의 숫자를 실측 평균으로 교체</li>
+<li>실제 세그먼트 비율 — 베타 유저가 생기면 접속 데이터로 비율을 검증 (그 전까진 기본안·스트레스안 두 개를 함께 볼 것)</li>
+<li>전환율 — 30%는 가정. 초기엔 5~10%로 낮춘 시나리오도 병행 권장</li>
+</ul>
+
+<p class="note" style="margin-top:40px;">참고 자료: <a href="https://uxcam.com/blog/mobile-app-engagement-benchmarks/">모바일 앱 참여 벤치마크 (UXCam)</a> · <a href="https://www.metrichq.org/saas/dau-mau-ratio/">DAU/MAU 지표 (MetricHQ)</a> · <a href="https://a16z.com/questioning-margins-is-a-boring-cliche/">AI 마진 논쟁 (a16z)</a> · <a href="https://www.saastr.com/have-ai-gross-margins-really-turned-the-corner-the-real-math-behind-openais-70-compute-margin-and-why-b2b-startups-are-still-running-on-a-treadmill/">AI 매출총이익률의 실제 (SaaStr)</a> · <a href="https://www.softwareseni.com/why-ai-gross-margins-are-so-much-lower-than-saas-and-what-that-means-for-your-business/">AI vs SaaS 마진 (SoftwareSeni)</a> · 사내: 니가교수_API원가_측정템플릿.xlsx (2026-07-14 실측)</p>
+
+<a class="back" href="index.html">← 재무 보드로 돌아가기</a>
+</div>
+</body>
+</html>

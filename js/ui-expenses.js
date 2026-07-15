@@ -48,21 +48,6 @@
     box.querySelectorAll("[data-v]").forEach(function (b) {
       b.addEventListener("click", function () { view = b.getAttribute("data-v"); render(); });
     });
-    // 고정지출 월 성장률 (MoM) — 물가·규모 확대로 커지는 몫, 손익표에 복리 반영
-    const gBox = document.getElementById("costGrowthCtl");
-    if (gBox) {
-      const g = Math.round((S.settings.costGrowth || 0) * 1000) / 10;
-      gBox.innerHTML =
-        "<input type='range' id='cgRange' min='0' max='10' step='0.5' value='" + g + "' style='width:120px; accent-color:var(--brand);' />" +
-        "<input type='number' id='cgNum' min='0' max='30' step='0.5' value='" + g + "' style='width:64px; text-align:right; border:1px solid var(--line); border-radius:8px; padding:3px 6px; font-size:12.5px;' /><span class='mini-note'>%</span>";
-      ["cgRange", "cgNum"].forEach(function (id) {
-        document.getElementById(id).addEventListener("input", function () {
-          const v = Number(this.value) || 0;
-          document.getElementById(id === "cgRange" ? "cgNum" : "cgRange").value = v;
-          STORE.saveSettingsDebounced({ costGrowth: v / 100 });
-        });
-      });
-    }
   }
 
   function renderTable(g) {

@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
-<link rel="stylesheet" href="css/tokens.css?v=5">
-<link rel="stylesheet" href="css/app.css?v=5">
+<link rel="stylesheet" href="css/tokens.css?v=6">
+<link rel="stylesheet" href="css/app.css?v=6">
 </head>
 <body>
 
@@ -107,7 +107,8 @@
     <div class="sect-head">
       <span class="eyebrow">Variable Costs</span>
       <h2>API 원가 시뮬레이터</h2>
-      <p class="sub">사용자 구성과 기술 수준을 조절하면 인당 원가가 실시간으로 계산되고, 손익표·대시보드에 자동 반영됩니다. 기본값은 실측(문제당 54.18원) 기준으로 보수적으로 잡았어요.</p>
+      <p class="sub">사용자 구성과 기술 수준을 조절하면 인당 원가가 실시간으로 계산되고, 손익표·대시보드에 자동 반영됩니다. 기본값은 실측(문제당 54.18원) 기준으로 보수적으로 잡았어요.
+      <a href="logic.html" target="_blank" style="color:var(--brand-deep); font-weight:700;">→ 수익 로직 설명서 (업계 비율·추천안)</a></p>
     </div>
     <div class="sim-layout">
       <div class="card" id="apiSegments"></div>
@@ -127,7 +128,6 @@
     </div>
     <div class="cmp-bar" style="margin-bottom:14px;">
       <span class="mini-note">보기</span><span id="expViewSel" style="display:inline-flex; gap:6px;"></span>
-      <span class="mini-note" style="margin-left:16px;">고정지출 월 성장률 MoM</span><span id="costGrowthCtl" style="display:inline-flex; align-items:center; gap:8px;"></span>
     </div>
     <div class="dash-lower" style="margin-top:0;">
       <div class="card deep">
@@ -253,18 +253,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
-<script src="js/calc.js?v=5"></script>
-<script src="js/firebase.js?v=5"></script>
-<script src="js/auth.js?v=5"></script>
-<script src="js/store.js?v=5"></script>
-<script src="js/charts.js?v=5"></script>
-<script src="js/xlsx.js?v=5"></script>
-<script src="js/ui-dashboard.js?v=5"></script>
-<script src="js/ui-apicost.js?v=5"></script>
-<script src="js/ui-simulator.js?v=5"></script>
-<script src="js/ui-expenses.js?v=5"></script>
-<script src="js/ui-pnl.js?v=5"></script>
-<script src="js/ui-excel.js?v=5"></script>
-<script src="js/main.js?v=5"></script>
+<script src="js/calc.js?v=6"></script>
+<script src="js/firebase.js?v=6"></script>
+<script src="js/auth.js?v=6"></script>
+<script src="js/store.js?v=6"></script>
+<script src="js/charts.js?v=6"></script>
+<script src="js/xlsx.js?v=6"></script>
+<script src="js/ui-dashboard.js?v=6"></script>
+<script src="js/ui-apicost.js?v=6"></script>
+<script src="js/ui-simulator.js?v=6"></script>
+<script src="js/ui-expenses.js?v=6"></script>
+<script src="js/ui-pnl.js?v=6"></script>
+<script src="js/ui-excel.js?v=6"></script>
+<script src="js/main.js?v=6"></script>
 </body>
 </html>

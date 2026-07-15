@@ -127,11 +127,10 @@
     const cashAsOf = (settings && settings.cashAsOf) || sc.startMonth;
     const cm = (settings && settings.costModel) || defaultCostModel();
     const cu = costPerUser(cm, settings && settings.fxRate);
-    const costGrowth = (settings && settings.costGrowth) || 0; // 고정지출 월 성장률 (MoM)
-    series.forEach(function (pt, idx) {
+    series.forEach(function (pt) {
       const act = actuals && actuals[pt.ym];
       const revenue = act && act.revenue != null ? act.revenue : pt.revenue;
-      const fixed = Math.round(monthlyFixedCost(expenses, pt.ym) * Math.pow(1 + costGrowth, idx));
+      const fixed = monthlyFixedCost(expenses, pt.ym);
       // 변동비: 유료 사용자 × 인당 API원가 + 결제 수수료 (실적 월은 costOverride가 전체 비용을 대체)
       const api = Math.round(pt.payingUsers * cu.blended);
       const fee = Math.round(revenue * (cm.feeRate || 0));
