@@ -18,6 +18,20 @@
     return new URLSearchParams(location.search).get("setup") === "1";
   }
 
+  // 보기 전용 링크: #view=<64자 방ID> — 비밀번호 없이 읽기만
+  function viewRoomId() {
+    const m = location.hash.match(/^#view=([a-f0-9]{64})$/);
+    return m ? m[1] : null;
+  }
+  async function tryViewUnlock() {
+    const roomId = viewRoomId();
+    if (!roomId) return null;
+    const refs = FB.roomRefs(roomId);
+    const snap = await refs.meta.get();
+    if (!snap.exists) throw new Error("보기 링크가 올바르지 않아요.");
+    return { roomId: roomId, refs: refs, readOnly: true };
+  }
+
   // 성공 시 {roomId, refs} 반환, 실패 시 Error throw
   async function tryUnlock(pw) {
     if (!pw || !pw.trim()) throw new Error("비밀번호를 입력해 주세요.");
@@ -52,5 +66,5 @@
     location.reload();
   }
 
-  window.AUTH = { tryUnlock: tryUnlock, savedPw: savedPw, lockNow: lockNow, isSetupMode: isSetupMode };
+  window.AUTH = { tryUnlock: tryUnlock, savedPw: savedPw, lockNow: lockNow, isSetupMode: isSetupMode, viewRoomId: viewRoomId, tryViewUnlock: tryViewUnlock };
 })();

@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
-<link rel="stylesheet" href="css/tokens.css?v=4">
-<link rel="stylesheet" href="css/app.css?v=4">
+<link rel="stylesheet" href="css/tokens.css?v=5">
+<link rel="stylesheet" href="css/app.css?v=5">
 </head>
 <body>
 
@@ -125,7 +125,10 @@
       <h2>고정지출</h2>
       <p class="sub">매달 나가는 돈을 등록해 두면 손익표와 런웨이에 자동 반영됩니다. 인건비는 합계 한 줄로만 관리합니다.</p>
     </div>
-    <div class="cmp-bar" style="margin-bottom:14px;"><span class="mini-note">보기</span><span id="expViewSel" style="display:inline-flex; gap:6px;"></span></div>
+    <div class="cmp-bar" style="margin-bottom:14px;">
+      <span class="mini-note">보기</span><span id="expViewSel" style="display:inline-flex; gap:6px;"></span>
+      <span class="mini-note" style="margin-left:16px;">고정지출 월 성장률 MoM</span><span id="costGrowthCtl" style="display:inline-flex; align-items:center; gap:8px;"></span>
+    </div>
     <div class="dash-lower" style="margin-top:0;">
       <div class="card deep">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
@@ -234,7 +237,7 @@
     <div class="fld"><label>이름</label><input id="smName" placeholder="예: 미국 구독안" /></div>
     <div class="fld-row">
       <div class="fld"><label>시작 월</label><input id="smStart" type="month" /></div>
-      <div class="fld"><label>기간 (개월)</label><select id="smMonths"><option>12</option><option selected>24</option></select></div>
+      <div class="fld"><label>기간 (개월)</label><select id="smMonths"><option>12</option><option selected>24</option><option>36</option></select></div>
     </div>
     <div class="foot">
       <button class="btn ghost" data-close>취소</button>
@@ -250,18 +253,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
-<script src="js/calc.js?v=4"></script>
-<script src="js/firebase.js?v=4"></script>
-<script src="js/auth.js?v=4"></script>
-<script src="js/store.js?v=4"></script>
-<script src="js/charts.js?v=4"></script>
-<script src="js/xlsx.js?v=4"></script>
-<script src="js/ui-dashboard.js?v=4"></script>
-<script src="js/ui-apicost.js?v=4"></script>
-<script src="js/ui-simulator.js?v=4"></script>
-<script src="js/ui-expenses.js?v=4"></script>
-<script src="js/ui-pnl.js?v=4"></script>
-<script src="js/ui-excel.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/calc.js?v=5"></script>
+<script src="js/firebase.js?v=5"></script>
+<script src="js/auth.js?v=5"></script>
+<script src="js/store.js?v=5"></script>
+<script src="js/charts.js?v=5"></script>
+<script src="js/xlsx.js?v=5"></script>
+<script src="js/ui-dashboard.js?v=5"></script>
+<script src="js/ui-apicost.js?v=5"></script>
+<script src="js/ui-simulator.js?v=5"></script>
+<script src="js/ui-expenses.js?v=5"></script>
+<script src="js/ui-pnl.js?v=5"></script>
+<script src="js/ui-excel.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 </body>
 </html>

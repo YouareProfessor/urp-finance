@@ -29,14 +29,19 @@
       { label: "월 흑자 전환점", color: "var(--pos)" }
     ]);
 
-    let html = "<thead><tr><th>월</th><th>매출</th><th>고정지출</th><th>API 원가</th><th>수수료</th><th>순손익</th><th>누적손익</th><th>현금잔고</th><th></th></tr></thead><tbody>";
-    rows.forEach(function (r) {
+    let html = "<thead><tr><th>월</th><th>매출</th><th>매출 MoM</th><th>고정지출</th><th>API 원가</th><th>수수료</th><th>비용 MoM</th><th>순손익</th><th>누적손익</th><th>현금잔고</th><th></th></tr></thead><tbody>";
+    rows.forEach(function (r, i) {
+      const prev = rows[i - 1];
+      const revMoM = prev && prev.revenue > 0 ? (r.revenue / prev.revenue - 1) * 100 : null;
+      const costMoM = prev && prev.cost > 0 ? (r.cost / prev.cost - 1) * 100 : null;
       html += "<tr data-ym='" + r.ym + "'>" +
         "<td>" + CALC.ymLabel(r.ym) + (r.isActual ? " <span class='badge pos'>실적</span>" : "") + "</td>" +
         "<td class='num'>" + CALC.fmtWon(r.revenue) + "</td>" +
+        "<td class='num'>" + mom(revMoM) + "</td>" +
         "<td class='num'>" + (r.isActual ? CALC.fmtWon(r.cost) : CALC.fmtWon(r.fixed)) + "</td>" +
         "<td class='num'>" + (r.isActual ? "-" : CALC.fmtWon(r.api)) + "</td>" +
         "<td class='num'>" + (r.isActual ? "-" : CALC.fmtWon(r.fee)) + "</td>" +
+        "<td class='num'>" + mom(costMoM) + "</td>" +
         "<td class='num " + (r.profit >= 0 ? "pos" : "neg") + "'>" + CALC.fmtWon(r.profit) + "</td>" +
         "<td class='num " + (r.cum >= 0 ? "pos" : "neg") + "'>" + CALC.fmtWon(r.cum) + "</td>" +
         "<td class='num'>" + (r.cash != null ? CALC.fmtWon(r.cash) : "-") + "</td>" +
@@ -51,6 +56,12 @@
     });
   }
 
+  function mom(v) {
+    if (v == null) return "<span class='upd-by'>-</span>";
+    const s = (v >= 0 ? "+" : "") + (Math.round(v * 10) / 10) + "%";
+    return "<span class='" + (v >= 0 ? "pos" : "neg") + "' style='font-size:12px;'>" + s + "</span>";
+  }
+
   function renderSelectors() {
     const scnBox = document.getElementById("pnlScnSel");
     scnBox.innerHTML = S.scenarios.map(function (sc) {
@@ -63,7 +74,7 @@
     });
 
     const hBox = document.getElementById("pnlHorizonSel");
-    hBox.innerHTML = [12, 18, 24].map(function (h) {
+    hBox.innerHTML = [3, 6, 9, 12, 18, 24, 36].map(function (h) {
       const on = (S.settings.horizonMonths || 24) === h;
       return "<button class='scn-chip" + (on ? " on" : "") + "' data-h='" + h + "' style='margin-right:6px;'>" + h + "개월</button>";
     }).join("");

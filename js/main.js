@@ -108,13 +108,31 @@
   function unlocked(res) {
     lockEl.style.display = "none";
     document.getElementById("app").hidden = false;
-    renderWhoChip();
+    S.readOnly = !!res.readOnly;
+    if (S.readOnly) {
+      document.body.classList.add("ro");
+      document.getElementById("whoChip").textContent = "보기 전용";
+      document.getElementById("lockBtn").textContent = "나가기";
+    } else {
+      renderWhoChip();
+      // 보기 링크 복사 버튼 (편집자 전용)
+      const btn = document.createElement("button");
+      btn.className = "who-chip"; btn.id = "viewLinkBtn"; btn.textContent = "보기 링크";
+      btn.title = "비밀번호 없이 볼 수만 있는 링크를 복사합니다 (준서·대표 외 팀원용)";
+      btn.addEventListener("click", function () {
+        const url = location.origin + location.pathname + "#view=" + S.roomId;
+        navigator.clipboard.writeText(url).then(function () {
+          toast("보기 전용 링크를 복사했어요 — 팀원에게 공유하세요");
+        });
+      });
+      document.getElementById("whoChip").before(btn);
+    }
     let scnFirst = true;
     STORE.connectRoom(res.roomId, res.refs, function (kind) {
       if (kind === "scenarios" && scnFirst) { scnFirst = false; onDataChange._scnLoaded = true; }
       onDataChange();
     });
-    if (!S.who) setTimeout(openWho, 600);
+    if (!S.who && !S.readOnly) setTimeout(openWho, 600);
   }
 
   document.getElementById("lockForm").addEventListener("submit", function (e) {
@@ -131,12 +149,19 @@
 
   // ---- 부팅 ----
   if (AUTH.isSetupMode()) document.getElementById("setupNote").hidden = false;
-  const saved = AUTH.savedPw();
-  if (saved && !AUTH.isSetupMode()) {
-    AUTH.tryUnlock(saved).then(unlocked).catch(function () {
-      // 저장된 비밀번호가 더는 안 맞으면 잠금 화면 유지
-      localStorage.removeItem("urpfin_pw");
+  if (AUTH.viewRoomId()) {
+    // 보기 전용 링크로 진입
+    AUTH.tryViewUnlock().then(unlocked).catch(function (err) {
+      lockMsg.textContent = err.message;
     });
+  } else {
+    const saved = AUTH.savedPw();
+    if (saved && !AUTH.isSetupMode()) {
+      AUTH.tryUnlock(saved).then(unlocked).catch(function () {
+        // 저장된 비밀번호가 더는 안 맞으면 잠금 화면 유지
+        localStorage.removeItem("urpfin_pw");
+      });
+    }
   }
 
   // 각 화면 1회 초기화

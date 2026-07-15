@@ -107,8 +107,15 @@
     data.updatedBy = S.who || "이름없음";
     return data;
   }
+  // 보기 전용이면 모든 저장 차단
+  function roGuard() {
+    if (!S.readOnly) return false;
+    if (window.MAIN) MAIN.toast("보기 전용이라 수정할 수 없어요");
+    return true;
+  }
 
   function saveSettings(patch) {
+    if (roGuard()) return Promise.resolve();
     Object.assign(S.settings, patch);
     return S.refs.settings.set(stamp(Object.assign({}, patch)), { merge: true });
   }
@@ -116,6 +123,7 @@
   let settingsTimer = null;
   let settingsDirty = false;
   function saveSettingsDebounced(patch) {
+    if (roGuard()) return;
     Object.assign(S.settings, patch);
     settingsDirty = true;
     clearTimeout(settingsTimer);
@@ -129,6 +137,7 @@
   // 시나리오: 슬라이더 드래그가 많으므로 id별 800ms 디바운스
   const scnTimers = {};
   function saveScenarioDebounced(sc) {
+    if (roGuard()) return;
     clearTimeout(scnTimers[sc.id]);
     scnTimers[sc.id] = setTimeout(function () {
       delete scnTimers[sc.id]; // 대기 해제 후 저장 (스냅샷 병합 재개)
@@ -136,21 +145,26 @@
     }, 800);
   }
   function saveScenarioNow(sc) {
+    if (roGuard()) return Promise.resolve();
     const data = Object.assign({}, sc); delete data.id;
     return S.refs.scenarios.doc(sc.id).set(stamp(data));
   }
-  function deleteScenario(id) { return S.refs.scenarios.doc(id).delete(); }
+  function deleteScenario(id) {
+    if (roGuard()) return Promise.resolve(); return S.refs.scenarios.doc(id).delete(); }
 
   function saveExpense(exp) {
+    if (roGuard()) return Promise.resolve();
     const data = Object.assign({}, exp); const id = data.id; delete data.id;
     return S.refs.expenses.doc(id).set(stamp(data));
   }
   function deleteExpense(id) {
+    if (roGuard()) return Promise.resolve();
     if (id === SALARY_ID) return Promise.reject(new Error("인건비 합계는 삭제할 수 없어요."));
     return S.refs.expenses.doc(id).delete();
   }
 
   function saveActual(ym, data) {
+    if (roGuard()) return Promise.resolve();
     if (data == null) return S.refs.actuals.doc(ym).delete();
     return S.refs.actuals.doc(ym).set(stamp(Object.assign({ month: ym }, data)), { merge: true });
   }
