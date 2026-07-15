@@ -5,13 +5,28 @@
   const esc = function (s) { return UI_EXPENSES.esc(s); };
 
   // scale: 저장값 → 표시값 배율 (전환율·성장률은 %로 보여주고 소수로 저장)
-  const PARAMS = [
-    { key: "price", label: "인당 가격 (원/월)", min: 0, max: 100000, step: 500, scale: 1 },
-    { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 50000, step: 50, scale: 1 },
-    { key: "conv", label: "유료 전환율 (%)", min: 0, max: 100, step: 1, scale: 100 },
-    { key: "growth", label: "월 성장률 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
-    { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 }
-  ];
+  // log: 넓은 범위 슬라이더는 로그 눈금 (낮은 구간도 미세 조절 가능)
+  function paramsFor(st) {
+    const usd = st.currency === "USD";
+    return [
+      usd ? { key: "price", label: "인당 가격 ($/월)", min: 0, max: 300, step: 0.5, scale: 1, currencyToggle: true }
+          : { key: "price", label: "인당 가격 (원/월)", min: 0, max: 300000, step: 500, scale: 1, log: true, currencyToggle: true },
+      { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 3000000, step: 10, scale: 1, log: true },
+      { key: "conv", label: "유료 전환율 (%)", min: 0, max: 100, step: 1, scale: 100 },
+      { key: "growth", label: "월 성장률 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
+      { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 }
+    ];
+  }
+  // 로그 슬라이더 변환: 슬라이더 눈금 0~1000 ↔ 실제값 0~max
+  function toSlider(v, p) {
+    if (!p.log) return v;
+    return Math.round(1000 * Math.log(v + 1) / Math.log(p.max + 1));
+  }
+  function fromSlider(t, p) {
+    if (!p.log) return Number(t);
+    const raw = Math.pow(p.max + 1, t / 1000) - 1;
+    return Math.min(p.max, Math.round(raw / p.step) * p.step);
+  }
 
   function render() {
     renderChips();
@@ -79,12 +94,16 @@
       html += "<div class='stream-card' data-si='" + si + "'>" +
         "<div class='st-head'><input value='" + esc(st.name) + "' data-p='name' />" +
         ((sc.streams.length > 1) ? "<button class='icon-btn' data-delstream='" + si + "'>✕</button>" : "") + "</div>";
-      PARAMS.forEach(function (p) {
+      paramsFor(st).forEach(function (p) {
         const raw = st[p.key] == null ? 0 : st[p.key];
         const v = Math.round(raw * p.scale * 100) / 100; // 표시값
-        html += "<div class='param'><div class='p-lb'><span>" + p.label + "</span>" +
+        const curBtn = p.currencyToggle
+          ? "<button class='scn-chip' data-cur='" + si + "' style='padding:3px 11px; font-size:11.5px;' title='원화/달러 전환'>" +
+            (st.currency === "USD" ? "$ 달러" : "₩ 원화") + "</button>"
+          : "";
+        html += "<div class='param'><div class='p-lb'><span>" + p.label + " " + curBtn + "</span>" +
           "<input type='number' data-p='" + p.key + "' value='" + v + "' min='" + p.min + "' step='" + p.step + "' /></div>" +
-          "<input type='range' data-p='" + p.key + "' value='" + v + "' min='" + p.min + "' max='" + p.max + "' step='" + p.step + "' /></div>";
+          "<input type='range' data-p='" + p.key + "' data-log='" + (p.log ? 1 : 0) + "' value='" + toSlider(v, p) + "' min='" + (p.log ? 0 : p.min) + "' max='" + (p.log ? 1000 : p.max) + "' step='" + (p.log ? 1 : p.step) + "' /></div>";
       });
       html += "</div>";
     });
@@ -100,17 +119,25 @@
           const st = sc.streams[si];
           if (key === "name") { st.name = inp.value; }
           else {
-            const p = PARAMS.find(function (q) { return q.key === key; });
-            const disp = Number(inp.value) || 0;
+            const p = paramsFor(st).find(function (q) { return q.key === key; });
+            const isRange = inp.type === "range";
+            const disp = isRange ? fromSlider(inp.value, p) : (Number(inp.value) || 0);
             st[key] = disp / p.scale; // 저장은 원 단위/소수
-            // 쌍둥이 입력 동기화
+            // 쌍둥이 입력 동기화 (숫자칸=실제값, 슬라이더=눈금값)
             cardEl.querySelectorAll("input[data-p='" + key + "']").forEach(function (twin) {
-              if (twin !== inp) twin.value = disp;
+              if (twin === inp) return;
+              twin.value = twin.type === "range" ? toSlider(disp, p) : disp;
             });
           }
           STORE.saveScenarioDebounced(sc);
           renderResult();
         });
+      });
+      const curBtn = cardEl.querySelector("[data-cur]");
+      if (curBtn) curBtn.addEventListener("click", function () {
+        const st = sc.streams[si];
+        st.currency = st.currency === "USD" ? "KRW" : "USD";
+        STORE.saveScenarioNow(sc); render();
       });
       const del = cardEl.querySelector("[data-delstream]");
       if (del) del.addEventListener("click", function () {
@@ -162,12 +189,12 @@
       kpi("월 흑자 전환", be.monthlyBE ? CALC.ymLabel(be.monthlyBE) : "기간 내 없음", be.monthlyBE ? "pos" : "neg") +
       kpi("누적 흑자", be.cumulativeBE ? CALC.ymLabel(be.cumulativeBE) : "기간 내 없음", be.cumulativeBE ? "pos" : "neg") +
       kpi("현금 소진", rw.cashOutYm ? CALC.ymLabel(rw.cashOutYm) : "없음", rw.cashOutYm ? "neg" : "pos") +
-      "</div></div>";
+      "</div>" + unitEconNote(rows) + "</div>";
 
     CHARTS.comboChart(document.getElementById("simChart"), rows, { breakEven: be.monthlyBE });
     document.getElementById("simLegend").innerHTML = CHARTS.legendHtml([
       { label: "매출", color: "var(--chart-1)" },
-      { label: "고정지출", color: "var(--chart-cost)" },
+      { label: "총비용 (고정+API+수수료)", color: "var(--chart-cost)" },
       { label: "누적손익", color: "var(--ink)", line: true }
     ]);
 
@@ -175,6 +202,21 @@
       return "<div class='kpi' style='cursor:default; padding:16px 18px;'><div class='lb'>" + lb +
         "</div><div class='v " + (cls || "") + "' style='font-size:19px;'>" + v + "</div></div>";
     }
+  }
+
+  // 인당 경제성 한 줄: ARPU vs API 원가 vs 공헌이익 (API 원가 탭과 같은 계산)
+  function unitEconNote(rows) {
+    const c = S.settings.costModel;
+    if (!c) return "";
+    const cu = CALC.costPerUser(c, S.settings.fxRate);
+    const row = rows.find(function (r) { return r.payingUsers > 0; });
+    if (!row) return "";
+    const arpu = row.revenue / row.payingUsers;
+    const contrib = arpu - arpu * (c.feeRate || 0) - cu.blended;
+    return "<p class='mini-note' style='margin-top:12px;'>인당 매출 " + CALC.fmtWonShort(Math.round(arpu)) +
+      " − API 원가 " + CALC.fmtWonShort(cu.blended) +
+      " − 수수료 = 인당 공헌이익 <b class='" + (contrib >= 0 ? "pos" : "neg") + "'>" +
+      CALC.fmtWonShort(Math.round(contrib)) + "</b> · 자세한 조정은 ‘API 원가’ 탭에서</p>";
   }
 
   // ---- 비교 모드 ----
@@ -207,7 +249,7 @@
     CHARTS.multiLine(document.getElementById("cmpChart"), picked.map(function (sc) {
       return {
         name: sc.name, colorIdx: sc.color || 0,
-        points: CALC.scenarioSeries(sc).map(function (p) { return { ym: p.ym, v: p.revenue }; })
+        points: CALC.scenarioSeries(sc, S.settings).map(function (p) { return { ym: p.ym, v: p.revenue }; })
       };
     }));
     document.getElementById("cmpLegend").innerHTML = CHARTS.legendHtml(picked.map(function (sc) {

@@ -24,22 +24,25 @@
     CHARTS.comboChart(chartBox, rows, { breakEven: be.monthlyBE });
     document.getElementById("pnlLegend").innerHTML = CHARTS.legendHtml([
       { label: "매출", color: "var(--chart-1)" },
-      { label: "고정지출", color: "var(--chart-cost)" },
+      { label: "총비용 (고정+API+수수료)", color: "var(--chart-cost)" },
       { label: "누적손익", color: "var(--ink)", line: true },
       { label: "월 흑자 전환점", color: "var(--pos)" }
     ]);
 
-    let html = "<thead><tr><th>월</th><th>매출</th><th>고정지출</th><th>순손익</th><th>누적손익</th><th>현금잔고</th><th></th></tr></thead><tbody>";
+    let html = "<thead><tr><th>월</th><th>매출</th><th>고정지출</th><th>API 원가</th><th>수수료</th><th>순손익</th><th>누적손익</th><th>현금잔고</th><th></th></tr></thead><tbody>";
     rows.forEach(function (r) {
       html += "<tr data-ym='" + r.ym + "'>" +
         "<td>" + CALC.ymLabel(r.ym) + (r.isActual ? " <span class='badge pos'>실적</span>" : "") + "</td>" +
         "<td class='num'>" + CALC.fmtWon(r.revenue) + "</td>" +
-        "<td class='num'>" + CALC.fmtWon(r.cost) + "</td>" +
+        "<td class='num'>" + (r.isActual ? CALC.fmtWon(r.cost) : CALC.fmtWon(r.fixed)) + "</td>" +
+        "<td class='num'>" + (r.isActual ? "-" : CALC.fmtWon(r.api)) + "</td>" +
+        "<td class='num'>" + (r.isActual ? "-" : CALC.fmtWon(r.fee)) + "</td>" +
         "<td class='num " + (r.profit >= 0 ? "pos" : "neg") + "'>" + CALC.fmtWon(r.profit) + "</td>" +
         "<td class='num " + (r.cum >= 0 ? "pos" : "neg") + "'>" + CALC.fmtWon(r.cum) + "</td>" +
         "<td class='num'>" + (r.cash != null ? CALC.fmtWon(r.cash) : "-") + "</td>" +
         "<td><span class='row-actions'><button class='icon-btn' data-act='" + r.ym + "' title='실적 입력'>✎</button></span></td></tr>";
     });
+    // 실적 월은 costOverride가 전체 비용을 대체하므로 항목 분해 대신 '-' 표시
     html += "</tbody>";
     tbl.innerHTML = html;
 

@@ -65,7 +65,7 @@
     document.getElementById("dashChartScn").textContent = "· " + sc.name;
     document.getElementById("dashLegend").innerHTML = CHARTS.legendHtml([
       { label: "매출", color: "var(--chart-1)" },
-      { label: "고정지출", color: "var(--chart-cost)" },
+      { label: "총비용 (고정+API+수수료)", color: "var(--chart-cost)" },
       { label: "누적손익", color: "var(--ink)", line: true }
     ]);
 

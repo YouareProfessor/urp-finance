@@ -29,6 +29,7 @@
   const RENDERERS = {
     dashboard: function () { UI_DASH.render(); },
     simulator: function () { UI_SIM.render(); },
+    apicost: function () { UI_APICOST.render(); },
     expenses: function () { UI_EXPENSES.render(); },
     pnl: function () { UI_PNL.render(); },
     excel: function () { UI_EXCEL.render(); }
@@ -54,14 +55,28 @@
   });
 
   // ---- 데이터 변경 → 현재 탭 다시 그림 ----
+  // 단, 사용자가 입력 중(슬라이더 드래그·타이핑)이면 재렌더를 미뤘다가 입력이 끝나면 그림
+  let pendingRender = false;
+  function isEditing() {
+    const ae = document.activeElement;
+    return ae && (ae.tagName === "INPUT" || ae.tagName === "SELECT" || ae.tagName === "TEXTAREA") &&
+      ae.closest("main") && ae.type !== "file";
+  }
   function onDataChange() {
     // 최초 시나리오 자동 생성 (설정·시나리오 로드 후 1회)
     if (S.refs && S.scenarios.length === 0 && !onDataChange._seeded && onDataChange._scnLoaded) {
       onDataChange._seeded = true;
       STORE.saveScenarioNow(STORE.defaultScenario(0));
     }
+    if (isEditing()) { pendingRender = true; return; }
     RENDERERS[currentTab]();
   }
+  document.addEventListener("focusout", function () {
+    if (!pendingRender) return;
+    setTimeout(function () {
+      if (pendingRender && !isEditing()) { pendingRender = false; RENDERERS[currentTab](); }
+    }, 150);
+  });
 
   // ---- 이름 선택 ----
   function renderWhoChip() {

@@ -115,7 +115,11 @@
     xLabels(svg, rows, xPos);
     hoverLayer(svg, container, rows, xPos, function (r) {
       return "<div class='t'>" + CALC.ymLabel(r.ym) + (r.isActual ? " · 실적" : " · 추정") + "</div>" +
-        row("매출", r.revenue) + row("고정지출", r.cost) + row("순손익", r.profit) + row("누적손익", r.cum) +
+        row("매출", r.revenue) +
+        (r.isActual || r.fixed == null
+          ? row("비용", r.cost)
+          : row("고정지출", r.fixed) + (r.api ? row("API 원가", r.api) : "") + (r.fee ? row("결제 수수료", r.fee) : "")) +
+        row("순손익", r.profit) + row("누적손익", r.cum) +
         (r.cash != null ? row("현금잔고", r.cash) : "");
     });
     function row(k, v) {

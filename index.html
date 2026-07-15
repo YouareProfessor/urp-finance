@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
-<link rel="stylesheet" href="css/tokens.css?v=3">
-<link rel="stylesheet" href="css/app.css?v=3">
+<link rel="stylesheet" href="css/tokens.css?v=4">
+<link rel="stylesheet" href="css/app.css?v=4">
 </head>
 <body>
 
@@ -55,6 +55,7 @@
 <nav class="tabs" id="tabs">
   <button data-tab="dashboard" class="on">대시보드</button>
   <button data-tab="simulator">수익 시뮬레이터</button>
+  <button data-tab="apicost">API 원가</button>
   <button data-tab="expenses">고정지출</button>
   <button data-tab="pnl">월별 손익표</button>
   <button data-tab="excel">엑셀</button>
@@ -98,6 +99,22 @@
     <div class="sim-layout">
       <div class="card" id="simLeft"></div>
       <div class="sim-right" id="simRight"></div>
+    </div>
+  </section>
+
+  <!-- API 원가 -->
+  <section class="tab" id="tab-apicost">
+    <div class="sect-head">
+      <span class="eyebrow">Variable Costs</span>
+      <h2>API 원가 시뮬레이터</h2>
+      <p class="sub">사용자 구성과 기술 수준을 조절하면 인당 원가가 실시간으로 계산되고, 손익표·대시보드에 자동 반영됩니다. 기본값은 실측(문제당 54.18원) 기준으로 보수적으로 잡았어요.</p>
+    </div>
+    <div class="sim-layout">
+      <div class="card" id="apiSegments"></div>
+      <div class="sim-right">
+        <div class="card" id="apiTech"></div>
+        <div class="card deep" id="apiResults" style="margin-top:18px;"></div>
+      </div>
     </div>
   </section>
 
@@ -155,7 +172,7 @@
     <div class="excel-grid">
       <div class="card deep">
         <h3 style="font-size:16px;">리포트 내보내기</h3>
-        <p class="mini-note" style="margin-top:8px;">월별손익 · 고정지출 · 시나리오 3개 시트로 저장됩니다.</p>
+        <p class="mini-note" style="margin-top:8px;">월별손익 · 고정지출 · 시나리오 · 원가모델 4개 시트로 저장됩니다.</p>
         <div style="margin-top:18px;">
           <button class="btn primary" id="exportBtn">엑셀로 내보내기 <span class="arr">↓</span></button>
         </div>
@@ -233,17 +250,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
-<script src="js/calc.js?v=3"></script>
-<script src="js/firebase.js?v=3"></script>
-<script src="js/auth.js?v=3"></script>
-<script src="js/store.js?v=3"></script>
-<script src="js/charts.js?v=3"></script>
-<script src="js/xlsx.js?v=3"></script>
-<script src="js/ui-dashboard.js?v=3"></script>
-<script src="js/ui-simulator.js?v=3"></script>
-<script src="js/ui-expenses.js?v=3"></script>
-<script src="js/ui-pnl.js?v=3"></script>
-<script src="js/ui-excel.js?v=3"></script>
-<script src="js/main.js?v=3"></script>
+<script src="js/calc.js?v=4"></script>
+<script src="js/firebase.js?v=4"></script>
+<script src="js/auth.js?v=4"></script>
+<script src="js/store.js?v=4"></script>
+<script src="js/charts.js?v=4"></script>
+<script src="js/xlsx.js?v=4"></script>
+<script src="js/ui-dashboard.js?v=4"></script>
+<script src="js/ui-apicost.js?v=4"></script>
+<script src="js/ui-simulator.js?v=4"></script>
+<script src="js/ui-expenses.js?v=4"></script>
+<script src="js/ui-pnl.js?v=4"></script>
+<script src="js/ui-excel.js?v=4"></script>
+<script src="js/main.js?v=4"></script>
 </body>
 </html>

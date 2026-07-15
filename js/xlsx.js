@@ -31,9 +31,10 @@
         const horizon = S.settings.horizonMonths || 24;
         const scH = Object.assign({}, sc, { months: Math.min(horizon, sc.months || 24) });
         const rows = CALC.pnlSeries(scH, S.expenses, S.actuals, S.settings);
-        const aoa = [["월", "매출", "고정지출", "순손익", "누적손익", "현금잔고", "구분"]];
+        const aoa = [["월", "매출", "유료 사용자", "고정지출", "API 원가", "결제 수수료", "총비용", "순손익", "누적손익", "현금잔고", "구분"]];
         rows.forEach(function (r) {
-          aoa.push([r.ym, r.revenue, r.cost, r.profit, r.cum, r.cash != null ? r.cash : "", r.isActual ? "실적" : "추정"]);
+          aoa.push([r.ym, r.revenue, r.payingUsers || "", r.fixed, r.isActual ? "" : r.api, r.isActual ? "" : r.fee,
+            r.cost, r.profit, r.cum, r.cash != null ? r.cash : "", r.isActual ? "실적" : "추정"]);
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "월별손익");
       }
@@ -60,12 +61,42 @@
         (s.streams || []).forEach(function (st) {
           aoa3.push([st.name, st.price, st.users, st.conv, st.growth, st.startOffset || 0]);
         });
-        const series = CALC.scenarioSeries(s);
+        const series = CALC.scenarioSeries(s, S.settings);
         aoa3.push(["월"].concat(series.map(function (p) { return p.ym; })));
         aoa3.push(["매출"].concat(series.map(function (p) { return p.revenue; })));
         aoa3.push([]);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa3.length ? aoa3 : [["시나리오 없음"]]), "시나리오");
+
+      // ④ 원가모델 (API 변동원가 가정 전체)
+      const cmodel = S.settings.costModel || CALC.defaultCostModel();
+      const cu = CALC.costPerUser(cmodel, S.settings.fxRate);
+      const aoa4 = [
+        ["API 원가 모델 (측정 템플릿 기반, 보수적 가정)"],
+        [],
+        ["시간당 푸는 문제 수", cmodel.problemsPerHour],
+        ["문제당 후속 호출", cmodel.followUpCalls],
+        ["토큰 절감률 (%)", cmodel.savingPct],
+        ["결제 수수료율 (%)", Math.round((cmodel.feeRate || 0) * 1000) / 10],
+        ["환율 (원/달러)", S.settings.fxRate || 1400],
+        [],
+        ["문제당 토큰 (호출 1회)", "신규 " + cmodel.tokensPerProblemCall.fresh, "캐시읽기 " + cmodel.tokensPerProblemCall.cacheRead,
+          "캐시쓰기 " + (cmodel.tokensPerProblemCall.cacheWrite || 0), "출력 " + cmodel.tokensPerProblemCall.out],
+        ["단가 (USD/100만 토큰)", "신규 " + cmodel.prices.fresh, "캐시읽기 " + cmodel.prices.cacheRead,
+          "캐시쓰기 " + cmodel.prices.cacheWrite, "출력 " + cmodel.prices.out],
+        [],
+        ["시간당 토큰 (현재 기술)", cu.tokensPerHour],
+        ["시간당 토큰 (절감 후)", cu.tokensPerHourSaved],
+        ["문제당 비용 (KRW)", Math.round(cu.costPerProblemKRW * 100) / 100],
+        ["인당 월 원가 가중평균 (KRW)", cu.blended],
+        [],
+        ["유형", "비율(%)", "하루 시간", "주 일수", "월 문제수", "인당 월 원가(KRW)"]
+      ];
+      cmodel.segments.forEach(function (s, i) {
+        const ps = cu.perSeg[i];
+        aoa4.push([s.name, s.pct, s.hoursPerDay, s.daysPerWeek, ps.problemsMonth, ps.costMonth]);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa4), "원가모델");
 
       const today = new Date();
       const name = "URP-재무보드-" + today.getFullYear() + "-" +

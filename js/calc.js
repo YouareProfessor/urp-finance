@@ -22,24 +22,82 @@
   }
 
   // ---- 수익 스트림 ----
-  // stream: {name, price(인당 가격), users(사용자 수), conv(전환율 0~1), growth(월 성장률 0~1), startOffset(개월)}
-  function streamRevenue(stream, m) {
+  // stream: {name, price(인당 가격), currency("KRW"|"USD"), users(사용자 수), conv(전환율 0~1), growth(월 성장률 0~1), startOffset(개월)}
+  function streamPayingUsers(stream, m) {
     const off = stream.startOffset || 0;
     if (m < off) return 0;
     const growth = Math.pow(1 + (stream.growth || 0), m - off);
-    return (stream.price || 0) * (stream.users || 0) * growth * (stream.conv == null ? 1 : stream.conv);
+    return (stream.users || 0) * growth * (stream.conv == null ? 1 : stream.conv);
+  }
+  function streamRevenue(stream, m, fxRate) {
+    const fx = stream.currency === "USD" ? (fxRate || 1400) : 1;
+    return (stream.price || 0) * fx * streamPayingUsers(stream, m);
   }
 
-  // scenario: {startMonth:"2026-08", months, streams:[...]}
-  function scenarioSeries(sc) {
+  // scenario: {startMonth:"2026-08", months, streams:[...]}  — settings.fxRate로 달러 수익원 환산
+  function scenarioSeries(sc, settings) {
     const out = [];
     const n = sc.months || 24;
+    const fx = (settings && settings.fxRate) || 1400;
     for (let m = 0; m < n; m++) {
-      let rev = 0;
-      (sc.streams || []).forEach(function (st) { rev += streamRevenue(st, m); });
-      out.push({ ym: ymAdd(sc.startMonth, m), revenue: Math.round(rev) });
+      let rev = 0, users = 0;
+      (sc.streams || []).forEach(function (st) {
+        rev += streamRevenue(st, m, fx);
+        users += streamPayingUsers(st, m);
+      });
+      out.push({ ym: ymAdd(sc.startMonth, m), revenue: Math.round(rev), payingUsers: Math.round(users) });
     }
     return out;
+  }
+
+  // ---- API 변동원가 모델 ----
+  // 기본값은 니가교수_API원가_측정템플릿.xlsx 실측(2026-07-14 기하 진단 1건: 문제당 27.09원, 후속 1회 → 54.18원)
+  function defaultCostModel() {
+    return {
+      problemsPerHour: 8,          // 시간당 푸는 문제 수
+      followUpCalls: 1,            // 문제당 후속 호출(재질문·힌트)
+      tokensPerProblemCall: { fresh: 1400, cacheRead: 3000, cacheWrite: 0, out: 950 },
+      prices: { fresh: 3, cacheRead: 0.3, cacheWrite: 3.75, out: 15 }, // Sonnet, USD/100만 토큰 (보수적)
+      savingPct: 0,                // 토큰 절감률 % (기술 발전으로 조절)
+      feeRate: 0.033,              // 결제 수수료율 (PG 3.3%, 스토어 결제면 +15%p)
+      segments: [
+        { name: "열정 학생", pct: 20, hoursPerDay: 3, daysPerWeek: 6 },
+        { name: "일반 학생", pct: 50, hoursPerDay: 1, daysPerWeek: 5 },
+        { name: "유령 구독자", pct: 30, hoursPerDay: 0, daysPerWeek: 0 }
+      ]
+    };
+  }
+
+  const WEEKS_PER_MONTH = 4.345;
+
+  // 인당 월 원가: 세그먼트별 + 가중평균(블렌디드) + 시간당 토큰(현재 기술/절감 후)
+  function costPerUser(cm, fxRate) {
+    const fx = fxRate || 1400;
+    const eff = Math.max(0, 1 - (cm.savingPct || 0) / 100);
+    const t = cm.tokensPerProblemCall, p = cm.prices;
+    const calls = 1 + (cm.followUpCalls || 0);
+    const usdPerCall = ((t.fresh || 0) * p.fresh + (t.cacheRead || 0) * p.cacheRead +
+      (t.cacheWrite || 0) * p.cacheWrite + (t.out || 0) * p.out) / 1e6;
+    const costPerProblemKRW = usdPerCall * calls * eff * fx;
+    const tokensPerProblem = ((t.fresh || 0) + (t.cacheRead || 0) + (t.cacheWrite || 0) + (t.out || 0)) * calls;
+    const tokensPerHour = tokensPerProblem * (cm.problemsPerHour || 0);
+    const sumPct = cm.segments.reduce(function (a, s) { return a + (s.pct || 0); }, 0) || 1;
+    const perSeg = cm.segments.map(function (s) {
+      const problemsMonth = (s.hoursPerDay || 0) * (s.daysPerWeek || 0) * WEEKS_PER_MONTH * (cm.problemsPerHour || 0);
+      return {
+        name: s.name, pct: s.pct || 0,
+        hoursMonth: (s.hoursPerDay || 0) * (s.daysPerWeek || 0) * WEEKS_PER_MONTH,
+        problemsMonth: Math.round(problemsMonth),
+        costMonth: Math.round(problemsMonth * costPerProblemKRW)
+      };
+    });
+    const blended = perSeg.reduce(function (a, s) { return a + s.costMonth * s.pct; }, 0) / sumPct;
+    return {
+      perSeg: perSeg, blended: Math.round(blended),
+      costPerProblemKRW: costPerProblemKRW, tokensPerProblem: tokensPerProblem,
+      tokensPerHour: tokensPerHour, tokensPerHourSaved: Math.round(tokensPerHour * eff),
+      sumPct: sumPct
+    };
   }
 
   // ---- 고정지출 ----
@@ -63,18 +121,25 @@
   // settings: {cashBalance, cashAsOf}
   function pnlSeries(sc, expenses, actuals, settings) {
     const rows = [];
-    const series = scenarioSeries(sc);
+    const series = scenarioSeries(sc, settings);
     let cum = 0;
     const cashBase = (settings && settings.cashBalance) || 0;
     const cashAsOf = (settings && settings.cashAsOf) || sc.startMonth;
+    const cm = (settings && settings.costModel) || defaultCostModel();
+    const cu = costPerUser(cm, settings && settings.fxRate);
     series.forEach(function (pt) {
       const act = actuals && actuals[pt.ym];
       const revenue = act && act.revenue != null ? act.revenue : pt.revenue;
-      const cost = act && act.costOverride != null ? act.costOverride : monthlyFixedCost(expenses, pt.ym);
+      const fixed = monthlyFixedCost(expenses, pt.ym);
+      // 변동비: 유료 사용자 × 인당 API원가 + 결제 수수료 (실적 월은 costOverride가 전체 비용을 대체)
+      const api = Math.round(pt.payingUsers * cu.blended);
+      const fee = Math.round(revenue * (cm.feeRate || 0));
+      const cost = act && act.costOverride != null ? act.costOverride : fixed + api + fee;
       const profit = revenue - cost;
       cum += profit;
       rows.push({
         ym: pt.ym, revenue: revenue, cost: cost, profit: profit, cum: cum,
+        fixed: fixed, api: api, fee: fee, payingUsers: pt.payingUsers,
         isActual: !!act,
         // 현금곡선: 기준월 이전 구간은 표시하지 않음(null)
         cash: ymDiff(pt.ym, cashAsOf) >= 0 ? null : null // 아래에서 채움
@@ -141,7 +206,8 @@
 
   const api = {
     ymAdd: ymAdd, ymDiff: ymDiff, ymLabel: ymLabel,
-    streamRevenue: streamRevenue, scenarioSeries: scenarioSeries,
+    streamRevenue: streamRevenue, streamPayingUsers: streamPayingUsers, scenarioSeries: scenarioSeries,
+    defaultCostModel: defaultCostModel, costPerUser: costPerUser,
     expenseMonthly: expenseMonthly, monthlyFixedCost: monthlyFixedCost,
     pnlSeries: pnlSeries, breakEven: breakEven, runwayInfo: runwayInfo,
     fmtWon: fmtWon, fmtWonShort: fmtWonShort, fmtMonths: fmtMonths
