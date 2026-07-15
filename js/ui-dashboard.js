@@ -69,13 +69,11 @@
       { label: "누적손익", color: "var(--ink)", line: true }
     ]);
 
-    // 지출 상위 3 카테고리
-    const cats = [];
-    STORE.CATEGORIES.forEach(function (cat, ci) {
-      const v = CALC.monthlyFixedCost(S.expenses.filter(function (e) { return (e.category || "기타") === cat; }), nowYm);
-      if (v > 0) cats.push({ cat: cat, v: v, ci: ci });
-    });
-    cats.sort(function (a, b) { return b.v - a.v; });
+    // 지출 상위 3 그룹 (고정지출 탭과 같은 색 배정 재사용)
+    const g = UI_EXPENSES.groupStats();
+    const cats = g.keys.map(function (k) { return { cat: k, v: g.values[k], color: g.colors[k] }; })
+      .filter(function (c) { return c.v > 0; })
+      .sort(function (a, b) { return b.v - a.v; });
     const total = cats.reduce(function (a, c) { return a + c.v; }, 0);
     document.getElementById("dashTopCats").innerHTML = cats.length === 0
       ? "<p class='mini-note'>아직 등록된 지출이 없어요. ‘고정지출’ 탭에서 추가하세요.</p>"
@@ -83,10 +81,10 @@
         const pct = Math.round(c.v / total * 100);
         return "<div style='margin-bottom:16px;'>" +
           "<div style='display:flex; justify-content:space-between; font-size:13.5px; font-weight:600;'>" +
-          "<span><span class='cat-dot' style='background:" + CHARTS.chartColor(c.ci) + "'></span>" + esc(c.cat) + "</span>" +
+          "<span><span class='cat-dot' style='background:" + c.color + "'></span>" + esc(c.cat) + "</span>" +
           "<span class='num'>" + CALC.fmtWonShort(c.v) + " · " + pct + "%</span></div>" +
           "<div style='height:8px; border-radius:4px; background:var(--paper2); margin-top:7px; overflow:hidden;'>" +
-          "<div style='height:100%; width:" + pct + "%; border-radius:4px; background:" + CHARTS.chartColor(c.ci) + "; transition:width .8s var(--e);'></div></div></div>";
+          "<div style='height:100%; width:" + pct + "%; border-radius:4px; background:" + c.color + "; transition:width .8s var(--e);'></div></div></div>";
       }).join("") +
       "<button class='btn ghost sm' onclick=\"MAIN.goTab('expenses')\">전체 보기 →</button>";
 

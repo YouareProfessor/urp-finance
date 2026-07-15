@@ -192,9 +192,12 @@
         // 360° 완전 원은 시작점=끝점이라 그려지지 않음 — 미세하게 줄여서 그림
         const a1 = Math.min(a0 + frac * Math.PI * 2, a0 + Math.PI * 2 - 0.003);
         // 2px 간격: 표면색 스트로크
+        const fillColor = it.fixedColor
+          ? (it.fixedColor.indexOf("var(") === 0 ? css(it.fixedColor.slice(4, -1)) : it.fixedColor)
+          : chartColor(it.colorIdx != null ? it.colorIdx : i);
         svg.appendChild(el("path", {
           d: arcPath(cx, cy, r, a0, a1, thick),
-          fill: chartColor(it.colorIdx != null ? it.colorIdx : i),
+          fill: fillColor,
           stroke: css("--card"), "stroke-width": 2
         })).addEventListener("mousemove", function (ev) {
           tipShow("<div class='t'>" + it.label + "</div><div class='r'><span class='k'>월 환산</span><span class='num'>" +

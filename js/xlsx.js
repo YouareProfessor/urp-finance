@@ -38,16 +38,18 @@
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "월별손익");
       }
 
-      // ② 고정지출 (가져오기와 왕복 호환)
+      // ② 고정지출 (가져오기와 왕복 호환) — 테마 + K-IFRS 계정과목 동시 기록
       const ym = STORE.nowYm();
-      const aoa2 = [["항목", "카테고리", "월 환산 금액", "주기", "시작월", "종료월", "메모"]];
+      const aoa2 = [["항목", "테마", "계정과목(K-IFRS)", "월 환산 금액", "주기", "시작월", "종료월", "메모"]];
       let total = 0;
       S.expenses.forEach(function (e) {
         const m = Math.round(CALC.expenseMonthly(e));
         total += CALC.monthlyFixedCost([e], ym);
-        aoa2.push([e.name, e.category || "기타", m, e.cycle === "yearly" ? "연 1회" : "매달", e.startMonth || "", e.endMonth || "", e.memo || ""]);
+        aoa2.push([e.name, e.category || "기타",
+          e.account || STORE.THEME_TO_ACCOUNT[e.category || "기타"] || "",
+          m, e.cycle === "yearly" ? "연 1회" : "매달", e.startMonth || "", e.endMonth || "", e.memo || ""]);
       });
-      aoa2.push(["합계", "", Math.round(total), "", "", "", "이번 달 기준"]);
+      aoa2.push(["합계", "", "", Math.round(total), "", "", "", "이번 달 기준"]);
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa2), "고정지출");
 
       // ③ 시나리오 (파라미터 블록 + 월 매출 매트릭스)
@@ -75,9 +77,10 @@
 
   // ---- 가져오기 파싱 ----
   const HEADER_ALIASES = {
-    name: ["항목", "이름", "내역", "품목", "항목명", "name", "item"],
-    amount: ["금액", "비용", "월비용", "월 환산 금액", "월환산", "가격", "amount", "cost", "price"],
-    category: ["카테고리", "분류", "구분", "category", "type"],
+    name: ["항목", "이름", "내역", "내용", "품목", "항목명", "name", "item"],
+    amount: ["금액", "비용", "월비용", "월 환산 금액", "월환산", "출금", "가격", "amount", "cost", "price"],
+    category: ["테마", "대분류", "카테고리", "분류", "category", "type"],
+    account: ["계정과목", "계정", "account"],
     cycle: ["주기", "cycle"],
     memo: ["메모", "비고", "설명", "memo", "note"]
   };
@@ -97,13 +100,20 @@
       return file.arrayBuffer();
     }).then(function (buf) {
       const wb = XLSX.read(buf, { type: "array" });
-      // "고정지출" 시트 우선, 없으면 첫 시트
-      const sheetName = wb.SheetNames.indexOf("고정지출") >= 0 ? "고정지출" : wb.SheetNames[0];
-      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: "" });
-      // 빈 행 제거
-      const rows = aoa.filter(function (r) { return r.some(function (c) { return String(c).trim() !== ""; }); });
-      if (rows.length < 2) throw new Error("데이터가 없는 파일이에요.");
-      const headers = rows[0].map(function (h) { return String(h); });
+      // 시트 자동 선택: 헤더가 지출 열 이름(항목/금액/분류 등)과 가장 잘 맞는 시트를 고름
+      let best = null;
+      wb.SheetNames.forEach(function (n) {
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: "" });
+        const rows = aoa.filter(function (r) { return r.some(function (c) { return String(c).trim() !== ""; }); });
+        if (rows.length < 2) return;
+        const headers = rows[0].map(function (h) { return String(h); });
+        let score = 0;
+        Object.keys(HEADER_ALIASES).forEach(function (k) { if (guessCol(headers, k) >= 0) score++; });
+        if (n === "고정지출") score += 2; // 우리 내보내기 시트 우선
+        if (!best || score > best.score) best = { name: n, rows: rows, headers: headers, score: score };
+      });
+      if (!best || best.score < 2) throw new Error("지출 목록으로 보이는 시트를 찾지 못했어요. 항목·금액 열이 있는지 확인해 주세요.");
+      const sheetName = best.name, rows = best.rows, headers = best.headers;
       return {
         sheetName: sheetName,
         headers: headers,
@@ -112,6 +122,7 @@
           name: guessCol(headers, "name"),
           amount: guessCol(headers, "amount"),
           category: guessCol(headers, "category"),
+          account: guessCol(headers, "account"),
           cycle: guessCol(headers, "cycle"),
           memo: guessCol(headers, "memo")
         }
@@ -137,6 +148,11 @@
       const cycleRaw = map.cycle >= 0 ? String(r[map.cycle] || "") : "";
       const cycle = /연|year/i.test(cycleRaw) ? "yearly" : "monthly";
       const memo = map.memo >= 0 ? String(r[map.memo] || "").trim() : "";
+      // 계정과목: 파일 값이 K-IFRS 목록에 있으면 사용, 아니면 테마 추천값
+      let account = map.account >= 0 ? String(r[map.account] || "").trim() : "";
+      if (STORE.ACCOUNTS.indexOf(account) < 0) {
+        account = STORE.THEME_TO_ACCOUNT[category] || "기타판매비와관리비";
+      }
       if (category === "인건비") {
         // 개인별 급여는 절대 항목화하지 않음 — 합계로만
         salarySum += cycle === "yearly" ? amount / 12 : amount;
@@ -144,7 +160,7 @@
         return;
       }
       out.push({
-        id: STORE.newId("exp"), name: name, category: category, amount: amount,
+        id: STORE.newId("exp"), name: name, category: category, account: account, amount: amount,
         cycle: cycle, memo: memo, startMonth: null, endMonth: null, order: 1000 + i
       });
     });

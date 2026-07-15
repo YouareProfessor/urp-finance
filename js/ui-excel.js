@@ -49,10 +49,12 @@
         }).join("") + "</select>";
     }
     area.innerHTML =
-      "<p class='mini-note' style='margin-top:16px;'>‘" + esc(parsed.sheetName) + "’ 시트에서 " + parsed.rows.length + "행을 찾았어요. 열을 확인해 주세요.</p>" +
+      "<p class='mini-note' style='margin-top:16px;'>‘" + esc(parsed.sheetName) + "’ 시트에서 " + parsed.rows.length + "행을 찾았어요. 열을 확인해 주세요.<br>" +
+      "일회성 지출(행사 공간대여 등)이 섞여 있다면, 가져온 뒤 해당 항목의 시작·종료 월을 같은 달로 지정하면 그 달에만 계산됩니다.</p>" +
       "<div class='map-row'><span>항목 이름</span>" + sel("name", true) + "</div>" +
       "<div class='map-row'><span>금액</span>" + sel("amount", true) + "</div>" +
-      "<div class='map-row'><span>카테고리</span>" + sel("category") + "</div>" +
+      "<div class='map-row'><span>테마 (대분류)</span>" + sel("category") + "</div>" +
+      "<div class='map-row'><span>계정과목 (K-IFRS)</span>" + sel("account") + "</div>" +
       "<div class='map-row'><span>주기</span>" + sel("cycle") + "</div>" +
       "<div class='map-row'><span>메모</span>" + sel("memo") + "</div>" +
       "<div class='prev-tbl'><table id='prevTable'></table></div>" +
@@ -83,13 +85,13 @@
   function renderPreview() {
     const map = currentMap();
     const built = XLSX_IO.buildExpenses(parsed, map);
-    let html = "<thead><tr><th>항목</th><th>카테고리</th><th>금액</th><th>주기</th></tr></thead><tbody>";
+    let html = "<thead><tr><th>항목</th><th>테마</th><th>계정과목</th><th>금액</th><th>주기</th></tr></thead><tbody>";
     built.expenses.slice(0, 30).forEach(function (e) {
-      html += "<tr><td>" + esc(e.name) + "</td><td>" + esc(e.category) + "</td>" +
+      html += "<tr><td>" + esc(e.name) + "</td><td>" + esc(e.category) + "</td><td>" + esc(e.account || "") + "</td>" +
         "<td class='num'>" + CALC.fmtWon(e.amount) + "</td><td>" + (e.cycle === "yearly" ? "연 1회" : "매달") + "</td></tr>";
     });
     if (built.salaryCount > 0) {
-      html += "<tr class='subtotal'><td>인건비 " + built.salaryCount + "행 → 합계 1줄로 합산</td><td>인건비</td>" +
+      html += "<tr class='subtotal'><td>인건비 " + built.salaryCount + "행 → 합계 1줄로 합산</td><td>인건비</td><td>급여</td>" +
         "<td class='num'>" + CALC.fmtWon(built.salarySum) + "</td><td>매달</td></tr>";
     }
     html += "</tbody>";

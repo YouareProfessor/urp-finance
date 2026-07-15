@@ -17,7 +17,22 @@
     compareOn: false
   };
 
-  const CATEGORIES = ["인건비", "AI 도구", "서버·인프라", "소프트웨어", "마케팅", "사무·운영", "기타"];
+  // 테마(대분류) — 대표 회계 파일(URP.co회계 파일.xlsx 비용분류표)과 동일한 우리말 분류
+  const CATEGORIES = ["인건비", "개발/인프라비", "콘텐츠제작비", "행사운영비", "식비/팀운영비", "교통비", "비품비", "마케팅", "기타"];
+  // K-IFRS 계정과목 — 다트(DART) 공시 판매비와관리비에서 흔한 항목
+  const ACCOUNTS = [
+    "급여", "퇴직급여", "복리후생비", "여비교통비", "기업업무추진비(접대비)",
+    "통신비", "수도광열비", "세금과공과", "감가상각비", "무형자산상각비",
+    "지급임차료", "보험료", "차량유지비", "운반비", "교육훈련비",
+    "도서인쇄비", "소모품비", "지급수수료", "광고선전비", "경상연구개발비",
+    "외주용역비", "행사비", "기타판매비와관리비"
+  ];
+  // 테마 → 기본 계정과목 추천
+  const THEME_TO_ACCOUNT = {
+    "인건비": "급여", "개발/인프라비": "지급수수료", "콘텐츠제작비": "외주용역비",
+    "행사운영비": "행사비", "식비/팀운영비": "복리후생비", "교통비": "여비교통비",
+    "비품비": "소모품비", "마케팅": "광고선전비", "기타": "기타판매비와관리비"
+  };
   const TEAM = ["수민", "지민", "은우", "세빈", "준서", "정범"];
   const SALARY_ID = "salary_total";
 
@@ -124,11 +139,11 @@
     };
   }
   function defaultSalary() {
-    return { id: SALARY_ID, name: "인건비 합계", category: "인건비", isSalaryTotal: true, amount: 0, cycle: "monthly", memo: "개인별 급여는 비공개, 합계만", order: -1 };
+    return { id: SALARY_ID, name: "인건비 합계", category: "인건비", account: "급여", isSalaryTotal: true, amount: 0, cycle: "monthly", memo: "개인별 급여는 비공개, 합계만", order: -1 };
   }
 
   window.STORE = {
-    S: S, CATEGORIES: CATEGORIES, TEAM: TEAM, SALARY_ID: SALARY_ID,
+    S: S, CATEGORIES: CATEGORIES, ACCOUNTS: ACCOUNTS, THEME_TO_ACCOUNT: THEME_TO_ACCOUNT, TEAM: TEAM, SALARY_ID: SALARY_ID,
     connectRoom: connectRoom, nowYm: nowYm,
     saveSettings: saveSettings,
     saveScenarioDebounced: saveScenarioDebounced, saveScenarioNow: saveScenarioNow, deleteScenario: deleteScenario,
