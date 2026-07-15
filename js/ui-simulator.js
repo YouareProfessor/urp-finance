@@ -13,7 +13,7 @@
           : { key: "price", label: "인당 가격 (원/월)", min: 0, max: 300000, step: 500, scale: 1, log: true, currencyToggle: true },
       { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 3000000, step: 10, scale: 1, log: true },
       { key: "conv", label: "유료 전환율 (%)", min: 0, max: 100, step: 1, scale: 100 },
-      { key: "growth", label: "월 성장률 MoM (%)", min: 0, max: 30, step: 0.5, scale: 100 },
+      { key: "growth", label: "사용자 월 성장 가정 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
       { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 }
     ];
   }
