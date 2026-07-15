@@ -4,12 +4,13 @@
   const S = STORE.S;
   const esc = function (s) { return UI_EXPENSES.esc(s); };
 
+  // scale: 저장값 → 표시값 배율 (전환율·성장률은 %로 보여주고 소수로 저장)
   const PARAMS = [
-    { key: "price", label: "인당 가격 (원/월)", min: 0, max: 100000, step: 500, fmt: function (v) { return CALC.fmtWon(v); } },
-    { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 50000, step: 50, fmt: function (v) { return v.toLocaleString("ko-KR") + "명"; } },
-    { key: "conv", label: "유료 전환율", min: 0, max: 1, step: 0.01, fmt: function (v) { return Math.round(v * 100) + "%"; } },
-    { key: "growth", label: "월 성장률", min: 0, max: 0.3, step: 0.005, fmt: function (v) { return (Math.round(v * 1000) / 10) + "%/월"; } },
-    { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, fmt: function (v) { return v + "개월 뒤"; } }
+    { key: "price", label: "인당 가격 (원/월)", min: 0, max: 100000, step: 500, scale: 1 },
+    { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 50000, step: 50, scale: 1 },
+    { key: "conv", label: "유료 전환율 (%)", min: 0, max: 100, step: 1, scale: 100 },
+    { key: "growth", label: "월 성장률 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
+    { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 }
   ];
 
   function render() {
@@ -79,7 +80,8 @@
         "<div class='st-head'><input value='" + esc(st.name) + "' data-p='name' />" +
         ((sc.streams.length > 1) ? "<button class='icon-btn' data-delstream='" + si + "'>✕</button>" : "") + "</div>";
       PARAMS.forEach(function (p) {
-        const v = st[p.key] == null ? 0 : st[p.key];
+        const raw = st[p.key] == null ? 0 : st[p.key];
+        const v = Math.round(raw * p.scale * 100) / 100; // 표시값
         html += "<div class='param'><div class='p-lb'><span>" + p.label + "</span>" +
           "<input type='number' data-p='" + p.key + "' value='" + v + "' min='" + p.min + "' step='" + p.step + "' /></div>" +
           "<input type='range' data-p='" + p.key + "' value='" + v + "' min='" + p.min + "' max='" + p.max + "' step='" + p.step + "' /></div>";
@@ -98,11 +100,12 @@
           const st = sc.streams[si];
           if (key === "name") { st.name = inp.value; }
           else {
-            const v = Number(inp.value) || 0;
-            st[key] = v;
+            const p = PARAMS.find(function (q) { return q.key === key; });
+            const disp = Number(inp.value) || 0;
+            st[key] = disp / p.scale; // 저장은 원 단위/소수
             // 쌍둥이 입력 동기화
             cardEl.querySelectorAll("input[data-p='" + key + "']").forEach(function (twin) {
-              if (twin !== inp) twin.value = v;
+              if (twin !== inp) twin.value = disp;
             });
           }
           STORE.saveScenarioDebounced(sc);

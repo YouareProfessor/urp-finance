@@ -189,7 +189,8 @@
       let a0 = -Math.PI / 2;
       items.forEach(function (it, i) {
         const frac = it.value / total;
-        const a1 = a0 + frac * Math.PI * 2;
+        // 360° 완전 원은 시작점=끝점이라 그려지지 않음 — 미세하게 줄여서 그림
+        const a1 = Math.min(a0 + frac * Math.PI * 2, a0 + Math.PI * 2 - 0.003);
         // 2px 간격: 표면색 스트로크
         svg.appendChild(el("path", {
           d: arcPath(cx, cy, r, a0, a1, thick),
