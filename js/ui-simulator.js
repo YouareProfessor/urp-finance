@@ -237,6 +237,7 @@
     const rows = CALC.pnlSeries(sc, S.expenses, S.actuals, S.settings);
     const be = CALC.breakEven(rows);
     const rw = CALC.runwayInfo(rows, S.settings);
+    const nowRow = rows.find(function (r) { return r.ym === STORE.nowYm(); }) || rows[0];
 
     right.innerHTML =
       "<div class='card deep'><h3 style='font-size:16px;'>매출·손익 전망</h3>" +
@@ -246,7 +247,8 @@
       kpi("월 흑자 전환", be.monthlyBE ? CALC.ymLabel(be.monthlyBE) : "기간 내 없음", be.monthlyBE ? "pos" : "neg") +
       kpi("누적 흑자", be.cumulativeBE ? CALC.ymLabel(be.cumulativeBE) : "기간 내 없음", be.cumulativeBE ? "pos" : "neg") +
       kpi("현금 소진", rw.cashOutYm ? CALC.ymLabel(rw.cashOutYm) : "없음", rw.cashOutYm ? "neg" : "pos") +
-      "</div>" + unitEconNote(rows) + "</div>";
+      "</div>" + unitEconNote(rows) + "</div>" +
+      costBreakdownCard(nowRow);
 
     CHARTS.comboChart(document.getElementById("simChart"), rows, { breakEven: be.monthlyBE });
     document.getElementById("simLegend").innerHTML = CHARTS.legendHtml([
@@ -256,6 +258,8 @@
     ]);
     const goApiCostBtn = document.getElementById("goApiCostBtn");
     if (goApiCostBtn) goApiCostBtn.addEventListener("click", function () { MAIN.goTab("apicost"); });
+    const quickBtn = document.getElementById("apiCostQuickBtn");
+    if (quickBtn) quickBtn.addEventListener("click", openApiCostQuickModal);
 
     function kpi(lb, v, cls) {
       return "<div class='kpi' style='cursor:default; padding:16px 18px;'><div class='lb'>" + lb +
@@ -278,6 +282,34 @@
       " − 수수료 = 인당 공헌이익 <b class='" + (contrib >= 0 ? "pos" : "neg") + "'>" +
       CALC.fmtWonShort(Math.round(contrib)) + "</b> · " +
       "<button type='button' class='btn ghost sm' id='goApiCostBtn' style='padding:2px 10px; font-size:11.5px; vertical-align:middle;'>세부 조정 → API 원가 탭</button></p>";
+  }
+
+  // 이번 달 비용이 실제로 어디서 얼마나 나오는지 숫자로 명확히 보여준다 (고정비/API원가/수수료 → 총비용)
+  function costBreakdownCard(row) {
+    if (!row) return "";
+    const rr = function (k, v) { return "<tr><td>" + k + "</td><td class='num' style='font-weight:700;'>" + v + "</td></tr>"; };
+    const overrideNote = row.isActual
+      ? "<p class='mini-note' style='margin-top:8px; color:var(--neg);'>이 달은 손익표에 실적 금액을 직접 입력해 둬서, API 원가를 조정해도 이 달의 총비용 숫자는 안 바뀌어요. 다음 달부터는 바로 반영됩니다.</p>"
+      : "";
+    return "<div class='card' style='margin-top:18px;'>" +
+      "<div style='display:flex; align-items:center; gap:8px; flex-wrap:wrap;'>" +
+      "<h3 style='font-size:16px; flex:1;'>이번 달(" + CALC.ymLabel(row.ym) + ") 비용 구성</h3>" +
+      "<button class='btn ghost sm' id='apiCostQuickBtn'>⚙ API 원가 빠른 조정</button></div>" +
+      "<div class='tbl-wrap' style='margin-top:12px;'><table><tbody>" +
+      rr("고정지출", CALC.fmtWon(row.fixed)) +
+      rr("API 원가 <span class='mini-note'>(구독+광고형+PK/MK 전체)</span>", CALC.fmtWon(row.api)) +
+      rr("결제 수수료", CALC.fmtWon(row.fee)) +
+      rr("총비용" + (row.isActual ? " <span class='mini-note'>(실적 입력값)</span>" : ""), CALC.fmtWon(row.cost)) +
+      rr("매출", CALC.fmtWon(row.revenue)) +
+      rr("이번 달 손익", "<span class='" + (row.profit >= 0 ? "pos" : "neg") + "'>" + CALC.fmtWon(row.profit) + "</span>") +
+      "</tbody></table></div>" + overrideNote + "</div>";
+  }
+
+  // API 원가 빠른조정 팝업 — 탭 이동 없이 핵심 원가 레버만 바로 만짐
+  function openApiCostQuickModal() {
+    MAIN.openOverlay("apiCostQuickModal");
+    UI_APICOST.renderSegments("acmSegments");
+    UI_APICOST.renderTechQuick("acmTech");
   }
 
   // ---- 비교 모드 ----
@@ -346,7 +378,10 @@
         MAIN.closeOverlays(); MAIN.toast("저장했어요");
       });
     });
+    document.getElementById("acmGoFullBtn").addEventListener("click", function () {
+      MAIN.closeOverlays(); MAIN.goTab("apicost");
+    });
   }
 
-  window.UI_SIM = { render: render, init: init };
+  window.UI_SIM = { render: render, init: init, renderResult: renderResult };
 })();

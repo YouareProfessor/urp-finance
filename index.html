@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
-<link rel="stylesheet" href="css/tokens.css?v=9">
-<link rel="stylesheet" href="css/app.css?v=9">
+<link rel="stylesheet" href="css/tokens.css?v=10">
+<link rel="stylesheet" href="css/app.css?v=10">
 </head>
 <body>
 
@@ -254,6 +254,19 @@
   </div>
 </div>
 
+<div class="overlay" id="apiCostQuickModal">
+  <div class="modal wide">
+    <h3>API 원가 빠른 조정</h3>
+    <p class="mini-note" style="margin-top:-10px; margin-bottom:16px;">여기서 바꾸면 API 원가 탭에도 그대로 저장돼요. 토큰·단가 같은 세부값은 API 원가 탭에서.</p>
+    <div id="acmSegments"></div>
+    <div id="acmTech" style="margin-top:18px;"></div>
+    <div class="foot">
+      <button class="btn ghost" data-close>닫기</button>
+      <button class="btn primary" id="acmGoFullBtn">API 원가 탭에서 더 보기</button>
+    </div>
+  </div>
+</div>
+
 <div id="chartTip"></div>
 <div id="toast"></div>
 
@@ -262,18 +275,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 
-<script src="js/calc.js?v=9"></script>
-<script src="js/firebase.js?v=9"></script>
-<script src="js/auth.js?v=9"></script>
-<script src="js/store.js?v=9"></script>
-<script src="js/charts.js?v=9"></script>
-<script src="js/xlsx.js?v=9"></script>
-<script src="js/ui-dashboard.js?v=9"></script>
-<script src="js/ui-apicost.js?v=9"></script>
-<script src="js/ui-simulator.js?v=9"></script>
-<script src="js/ui-expenses.js?v=9"></script>
-<script src="js/ui-pnl.js?v=9"></script>
-<script src="js/ui-excel.js?v=9"></script>
-<script src="js/main.js?v=9"></script>
+<script src="js/calc.js?v=10"></script>
+<script src="js/firebase.js?v=10"></script>
+<script src="js/auth.js?v=10"></script>
+<script src="js/store.js?v=10"></script>
+<script src="js/charts.js?v=10"></script>
+<script src="js/xlsx.js?v=10"></script>
+<script src="js/ui-dashboard.js?v=10"></script>
+<script src="js/ui-apicost.js?v=10"></script>
+<script src="js/ui-simulator.js?v=10"></script>
+<script src="js/ui-expenses.js?v=10"></script>
+<script src="js/ui-pnl.js?v=10"></script>
+<script src="js/ui-excel.js?v=10"></script>
+<script src="js/main.js?v=10"></script>
 </body>
 </html>

@@ -167,5 +167,8 @@
   // 각 화면 1회 초기화
   UI_EXPENSES.init(); UI_SIM.init(); UI_PNL.init(); UI_DASH.init(); UI_EXCEL.init();
 
-  window.MAIN = { toast: toast, goTab: goTab, openOverlay: openOverlay, closeOverlays: closeOverlays };
+  window.MAIN = {
+    toast: toast, goTab: goTab, openOverlay: openOverlay, closeOverlays: closeOverlays,
+    getCurrentTab: function () { return currentTab; }
+  };
 })();
