@@ -67,17 +67,27 @@
     });
   }
 
-  // ============ 콤보: 매출/지출 막대 + 누적손익 선 (동일 ₩축) ============
-  function comboChart(container, rows, opts) {
-    opts = opts || {};
+  // 두 차트가 공유하는 호버 툴팁 내용 (매출·비용 내역 + 순손익 + 누적손익 + 현금잔고)
+  function pnlRowHtml(r) {
+    function row(k, v) {
+      return "<div class='r'><span class='k'>" + k + "</span><span class='num'>" + CALC.fmtWon(v) + "</span></div>";
+    }
+    return "<div class='t'>" + CALC.ymLabel(r.ym) + (r.isActual ? " · 실적" : " · 추정") + "</div>" +
+      row("매출", r.revenue) +
+      (r.isActual || r.fixed == null
+        ? row("비용", r.cost)
+        : row("고정지출", r.fixed) + (r.api ? row("API 원가", r.api) : "") + (r.fee ? row("결제 수수료", r.fee) : "")) +
+      row("순손익", r.profit) + row("누적손익", r.cum) +
+      (r.cash != null ? row("현금잔고", r.cash) : "");
+  }
+
+  // ============ 월별 매출 vs 비용 (막대, 자체 축) ============
+  function barChart(container, rows) {
     const svg = frame(container);
     if (!rows.length) return;
-    let lo = 0, hi = 0;
-    rows.forEach(function (r) {
-      lo = Math.min(lo, r.profit, r.cum, 0);
-      hi = Math.max(hi, r.revenue, r.cost, r.cum, 0);
-    });
-    const sc = niceScale(lo, hi);
+    let hi = 0;
+    rows.forEach(function (r) { hi = Math.max(hi, r.revenue, r.cost); });
+    const sc = niceScale(0, hi);
     const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
     const yPos = function (v) { return PAD.t + plotH * (1 - (v - sc.min) / (sc.max - sc.min)); };
     const slot = plotW / rows.length;
@@ -89,7 +99,7 @@
 
     rows.forEach(function (r, i) {
       const cx = xPos(i);
-      // 매출 막대 (chart-1), 지출 막대 (chart-cost) — 2px 간격, 윗단 라운드
+      // 매출 막대 (chart-1), 비용 막대 (chart-cost) — 2px 간격, 윗단 라운드 4px, 바닥은 직각
       [{ v: r.revenue, c: css("--chart-1"), dx: -barW - 1 }, { v: r.cost, c: css("--chart-cost"), dx: 1 }]
         .forEach(function (b) {
           if (b.v <= 0) return;
@@ -101,30 +111,83 @@
         });
     });
 
-    // 누적손익 선 (잉크색 2px)
+    xLabels(svg, rows, xPos);
+    hoverLayer(svg, container, rows, xPos, pnlRowHtml);
+  }
+
+  // ============ 누적 손익 (선 + 흑자/적자 구간 워시, 자체 축) ============
+  function cumulativeChart(container, rows, opts) {
+    opts = opts || {};
+    const svg = frame(container);
+    if (!rows.length) return;
+    let lo = 0, hi = 0;
+    rows.forEach(function (r) { lo = Math.min(lo, r.cum); hi = Math.max(hi, r.cum); });
+    const sc = niceScale(lo, hi);
+    const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+    const yPos = function (v) { return PAD.t + plotH * (1 - (v - sc.min) / (sc.max - sc.min)); };
+    // 위쪽 매출·비용 막대 차트와 같은 월이 같은 x좌표에 오도록, 막대 슬롯 중심에 맞춘다
+    const slot = plotW / rows.length;
+    const xPos = function (i) { return PAD.l + slot * (i + 0.5); };
+    yAxis(svg, sc, yPos);
+    const y0 = yPos(0);
+
     const line = rows.map(function (r, i) { return (i ? "L" : "M") + xPos(i) + " " + yPos(r.cum); }).join(" ");
+    const areaClose = " L" + xPos(rows.length - 1) + " " + y0 + " L" + xPos(0) + " " + y0 + " Z";
+
+    // 흑자 구간은 pos, 적자 구간은 neg 워시로 — 두 클립 영역으로 잘라 한 area path를 두 번 채운다
+    const cid = "cc" + (++cumClipSeq);
+    const defs = el("defs", {});
+    defs.appendChild(clipRect(cid + "-pos", PAD.l, PAD.t, plotW, Math.max(0, y0 - PAD.t)));
+    defs.appendChild(clipRect(cid + "-neg", PAD.l, y0, plotW, Math.max(0, H - PAD.b - y0)));
+    svg.appendChild(defs);
+    svg.appendChild(el("path", { d: line + areaClose, fill: css("--pos"), opacity: 0.1, "clip-path": "url(#" + cid + "-pos)" }));
+    svg.appendChild(el("path", { d: line + areaClose, fill: css("--neg"), opacity: 0.1, "clip-path": "url(#" + cid + "-neg)" }));
     svg.appendChild(el("path", { d: line, fill: "none", stroke: css("--ink"), "stroke-width": 2, "stroke-linejoin": "round" }));
 
-    // 분기점 마커
+    // 분기점 마커 (8px 이상, 카드색 링)
     if (opts.breakEven) {
       const idx = rows.findIndex(function (r) { return r.ym === opts.breakEven; });
       if (idx >= 0) {
         svg.appendChild(el("circle", { cx: xPos(idx), cy: yPos(rows[idx].cum), r: 5, fill: css("--pos"), stroke: css("--card"), "stroke-width": 2 }));
       }
     }
-    xLabels(svg, rows, xPos);
-    hoverLayer(svg, container, rows, xPos, function (r) {
-      return "<div class='t'>" + CALC.ymLabel(r.ym) + (r.isActual ? " · 실적" : " · 추정") + "</div>" +
-        row("매출", r.revenue) +
-        (r.isActual || r.fixed == null
-          ? row("비용", r.cost)
-          : row("고정지출", r.fixed) + (r.api ? row("API 원가", r.api) : "") + (r.fee ? row("결제 수수료", r.fee) : "")) +
-        row("순손익", r.profit) + row("누적손익", r.cum) +
-        (r.cash != null ? row("현금잔고", r.cash) : "");
+    // 끝점 직접 라벨
+    const last = rows[rows.length - 1];
+    const lt = el("text", {
+      x: Math.min(xPos(rows.length - 1), W - PAD.r - 4), y: yPos(last.cum) - 10,
+      "text-anchor": "end", class: "axis", "font-weight": "700"
     });
-    function row(k, v) {
-      return "<div class='r'><span class='k'>" + k + "</span><span class='num'>" + CALC.fmtWon(v) + "</span></div>";
-    }
+    lt.textContent = CALC.fmtWonShort(last.cum);
+    lt.style.fill = css(last.cum >= 0 ? "--pos" : "--neg");
+    svg.appendChild(lt);
+
+    xLabels(svg, rows, xPos);
+    hoverLayer(svg, container, rows, xPos, pnlRowHtml);
+  }
+  let cumClipSeq = 0;
+  function clipRect(id, x, y, w, h) {
+    const cp = el("clipPath", { id: id });
+    cp.appendChild(el("rect", { x: x, y: y, width: w, height: h }));
+    return cp;
+  }
+
+  // ============ 매출·비용 막대 + 누적손익 두 차트를 한 컨테이너에 세로로 배치 ============
+  // (예전엔 막대와 누적선을 축 하나에 욱여넣었지만, 월 매출·비용은 수천만원대·누적손익은 수억원대라
+  //  같은 축에서는 막대가 안 보였다. 두 차트로 나눠 각자 제 스케일로 읽히게 한다.)
+  function comboChart(container, rows, opts) {
+    container.innerHTML = "";
+    if (!rows.length) return;
+    const barBox = document.createElement("div");
+    const label = document.createElement("p");
+    label.className = "mini-note";
+    label.style.margin = "16px 0 6px 0";
+    label.textContent = "누적 손익";
+    const cumBox = document.createElement("div");
+    container.appendChild(barBox);
+    container.appendChild(label);
+    container.appendChild(cumBox);
+    barChart(barBox, rows);
+    cumulativeChart(cumBox, rows, opts);
   }
 
   function roundedBar(x, y, w, h, r) {
