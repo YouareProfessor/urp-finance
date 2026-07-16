@@ -13,6 +13,7 @@
   };
 
   let db = null;
+  let storage = null;
 
   function ensureApp() {
     if (!db) {
@@ -21,6 +22,15 @@
       try { db.enablePersistence({ synchronizeTabs: true }).catch(function () {}); } catch (e) {}
     }
     return db;
+  }
+
+  // 영수증/증빙 업로드용 Storage 참조. fin_rooms/{roomId}/receipts/ 아래만 사용
+  // (규칙은 room이 64자 hex일 때만 허용 — Firestore 비밀 경로 모델과 동일).
+  function receiptRef(roomId, filename) {
+    ensureApp();
+    if (!storage) storage = firebase.storage();
+    const safe = filename.replace(/[^\w.\-가-힣]/g, "_");
+    return storage.ref("fin_rooms/" + roomId + "/receipts/" + Date.now() + "_" + safe);
   }
 
   // roomId 확정 후 각 컬렉션 핸들 반환. fin_rooms/{roomId} 문서 자체는 절대 만들지 않는다(열람 차단 유지).
@@ -46,5 +56,5 @@
     if (tx) tx.textContent = text || "";
   }
 
-  window.FB = { ensureApp: ensureApp, roomRefs: roomRefs, setSync: setSync };
+  window.FB = { ensureApp: ensureApp, roomRefs: roomRefs, setSync: setSync, receiptRef: receiptRef };
 })();

@@ -5,6 +5,11 @@
   const S = STORE.S;
   let editingId = null;
   let view = "theme"; // "theme"(테마별) | "account"(계정과목별)
+  let pendingReceiptUrl = null;
+
+  // 영수증 자동인식 — urp-claude-proxy 워커의 전용 엔드포인트(FINANCE_KEY로만 인증, 오리진 제한 걸려 있음)
+  const RECEIPT_WORKER = "https://urp-claude-proxy.soomin020114.workers.dev/finance-receipt";
+  const FINANCE_KEY = "28c9c1c7179ab572187927d6dca77089588ef679cf4374a1";
 
   function groupKey(e) {
     if (view === "account") return e.account || STORE.THEME_TO_ACCOUNT[e.category || "기타"] || "기타판매비와관리비";
@@ -78,6 +83,7 @@
           "<td class='num'>" + CALC.fmtWon(m) + (e.cycle === "yearly" ? "<div class='upd-by'>연 " + CALC.fmtWonShort(e.amount) + "</div>" : "") + "</td>" +
           "<td>" + (e.cycle === "yearly" ? "연 1회" : "매달") + "</td>" +
           "<td style='max-width:180px; overflow:hidden; text-overflow:ellipsis;'>" + esc(e.memo || "") +
+          (e.receiptUrl ? " <a href='" + esc(e.receiptUrl) + "' target='_blank' rel='noopener'>📎 영수증</a>" : "") +
           (e.updatedBy ? "<div class='upd-by'>" + esc(e.updatedBy) + " 수정</div>" : "") + "</td>" +
           "<td><span class='row-actions'>" +
           "<button class='icon-btn' data-edit='" + e.id + "' title='수정'>✎</button>" +
@@ -136,6 +142,8 @@
     editingId = id || null;
     const e = id ? S.expenses.find(function (x) { return x.id === id; }) : null;
     document.getElementById("expModalTitle").textContent = e ? "지출 수정" : "지출 추가";
+    pendingReceiptUrl = e ? (e.receiptUrl || null) : null;
+    document.getElementById("receiptStatus").textContent = pendingReceiptUrl ? "📎 첨부된 영수증 있음 (새로 올리면 교체돼요)" : "";
     const catSel = document.getElementById("emCat");
     const accSel = document.getElementById("emAccount");
     const isSalary = e && e.id === STORE.SALARY_ID;
@@ -172,11 +180,89 @@
       memo: document.getElementById("emMemo").value.trim(),
       startMonth: document.getElementById("emStart").value || null,
       endMonth: document.getElementById("emEnd").value || null,
+      receiptUrl: pendingReceiptUrl || (base && base.receiptUrl) || null,
       order: base ? (base.order || 0) : S.expenses.length
     });
     STORE.saveExpense(exp).then(function () {
       MAIN.closeOverlays(); MAIN.toast("저장했어요");
     }).catch(function (e) { MAIN.toast("저장 실패: " + e.message); });
+  }
+
+  // ---- 영수증 업로드 + 자동인식 ----
+  function readFileBase64(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const s = String(reader.result || "");
+        const idx = s.indexOf(",");
+        resolve(idx >= 0 ? s.slice(idx + 1) : s);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function handleReceiptFile(file) {
+    if (S.readOnly) return;
+    const status = document.getElementById("receiptStatus");
+    status.textContent = "업로드 중…";
+
+    const uploadP = FB.receiptRef(S.roomId, file.name).put(file)
+      .then(function (snap) { return snap.ref.getDownloadURL(); })
+      .then(function (url) { pendingReceiptUrl = url; });
+
+    const extractP = readFileBase64(file).then(function (b64) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(function () { ctrl.abort(); }, 10000);
+      return fetch(RECEIPT_WORKER, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-finance-key": FINANCE_KEY },
+        body: JSON.stringify({ mime: file.type || "image/jpeg", data: b64 }),
+        signal: ctrl.signal
+      }).then(function (r) {
+        clearTimeout(timer);
+        if (!r.ok) throw new Error("인식 실패");
+        return r.json();
+      });
+    }).catch(function () { return null; });
+
+    Promise.all([uploadP, extractP]).then(function (res) {
+      const ext = res[1];
+      status.textContent = "📎 업로드 완료" + (ext ? " · 자동으로 채웠어요, 확인해 주세요" : " · 자동 인식은 실패했어요, 직접 입력해 주세요");
+      if (ext) {
+        if (ext.name) document.getElementById("emName").value = ext.name;
+        if (ext.amount) document.getElementById("emAmount").value = Math.round(ext.amount);
+        if (ext.category && STORE.CATEGORIES.indexOf(ext.category) >= 0) {
+          const catSel = document.getElementById("emCat");
+          if (!catSel.disabled) {
+            catSel.value = ext.category;
+            catSel.dispatchEvent(new Event("change"));
+          }
+        }
+        if (ext.ym) document.getElementById("emStart").value = ext.ym;
+        if (ext.memo) document.getElementById("emMemo").value = "영수증 자동인식: " + ext.memo;
+      }
+    }).catch(function () {
+      status.textContent = "업로드 실패 — 다시 시도해 주세요";
+    });
+  }
+
+  function initReceiptUpload() {
+    const drop = document.getElementById("receiptDrop");
+    const input = document.getElementById("receiptInput");
+    drop.addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+      if (input.files.length) handleReceiptFile(input.files[0]);
+    });
+    ["dragover", "dragenter"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
+    });
+    ["dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); });
+    });
+    drop.addEventListener("drop", function (e) {
+      if (e.dataTransfer.files.length) handleReceiptFile(e.dataTransfer.files[0]);
+    });
   }
 
   function esc(s) {
@@ -193,6 +279,7 @@
       const rec = STORE.THEME_TO_ACCOUNT[this.value];
       if (rec) document.getElementById("emAccount").value = rec;
     });
+    initReceiptUpload();
   }
 
   window.UI_EXPENSES = { render: render, init: init, esc: esc, groupStats: groupStats };

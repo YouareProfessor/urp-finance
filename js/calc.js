@@ -60,6 +60,7 @@
       prices: { fresh: 3, cacheRead: 0.3, cacheWrite: 3.75, out: 15 }, // Sonnet, USD/100만 토큰 (보수적)
       savingPct: 0,                // 토큰 절감률 % (기술 발전으로 조절)
       feeRate: 0.033,              // 결제 수수료율 (PG 3.3%, 스토어 결제면 +15%p)
+      freeUsers: 500,              // PK/MK 등 무료 제공 사용자(매출 0, API 비용은 발생) — 베타 추정치
       segments: [
         { name: "열정 학생", pct: 20, hoursPerDay: 3, daysPerWeek: 6 },
         { name: "일반 학생", pct: 50, hoursPerDay: 1, daysPerWeek: 5 },
@@ -67,6 +68,13 @@
       ]
     };
   }
+
+  // 업계 표준 사용자 구성 벤치마크 — 교육 앱 DAU/MAU 15~25%(출처: UXCam, MetricHQ)를
+  // 현재 3분류(열정/일반/유령)로 환산한 값. logic.html §4~5 세그먼트 추천안 근거와 동일.
+  const INDUSTRY_BENCHMARK = {
+    bySegmentName: { "열정 학생": 10, "일반 학생": 60, "유령 구독자": 30 },
+    source: "교육 앱 DAU/MAU 15~25% (UXCam·MetricHQ) 기준 · logic.html §4~5 세그먼트 추천안 3분류 환산"
+  };
 
   const WEEKS_PER_MONTH = 4.345;
 
@@ -131,8 +139,9 @@
       const act = actuals && actuals[pt.ym];
       const revenue = act && act.revenue != null ? act.revenue : pt.revenue;
       const fixed = monthlyFixedCost(expenses, pt.ym);
-      // 변동비: 유료 사용자 × 인당 API원가 + 결제 수수료 (실적 월은 costOverride가 전체 비용을 대체)
-      const api = Math.round(pt.payingUsers * cu.blended);
+      // 변동비: (유료 사용자 + 무료 제공 사용자 PK/MK) × 인당 API원가 + 결제 수수료
+      // — PK/MK는 매출은 없지만 API는 쓰므로 비용에만 더한다 (실적 월은 costOverride가 전체 비용을 대체)
+      const api = Math.round((pt.payingUsers + (cm.freeUsers || 0)) * cu.blended);
       const fee = Math.round(revenue * (cm.feeRate || 0));
       const cost = act && act.costOverride != null ? act.costOverride : fixed + api + fee;
       const profit = revenue - cost;
@@ -207,7 +216,7 @@
   const api = {
     ymAdd: ymAdd, ymDiff: ymDiff, ymLabel: ymLabel,
     streamRevenue: streamRevenue, streamPayingUsers: streamPayingUsers, scenarioSeries: scenarioSeries,
-    defaultCostModel: defaultCostModel, costPerUser: costPerUser,
+    defaultCostModel: defaultCostModel, costPerUser: costPerUser, INDUSTRY_BENCHMARK: INDUSTRY_BENCHMARK,
     expenseMonthly: expenseMonthly, monthlyFixedCost: monthlyFixedCost,
     pnlSeries: pnlSeries, breakEven: breakEven, runwayInfo: runwayInfo,
     fmtWon: fmtWon, fmtWonShort: fmtWonShort, fmtMonths: fmtMonths

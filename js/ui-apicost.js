@@ -19,12 +19,16 @@
   function renderSegments() {
     const box = document.getElementById("apiSegments");
     const sum = cm().segments.reduce(function (a, s) { return a + (s.pct || 0); }, 0);
-    let html = "<h3 style='font-size:16px;'>사용자 구성 <span class='mini-note'>전체 유료 사용자를 유형별로 나눕니다</span></h3>";
+    const bench = CALC.INDUSTRY_BENCHMARK;
+    let html = "<div style='display:flex; align-items:center; gap:10px; flex-wrap:wrap;'>" +
+      "<h3 style='font-size:16px; flex:1;'>사용자 구성 <span class='mini-note'>전체 유료 사용자를 유형별로 나눕니다</span></h3>" +
+      "<button class='btn ghost sm' id='segBenchApply'>● 업계 표준으로 맞추기</button></div>" +
+      "<p class='mini-note' style='margin-top:4px;'>진한 점 = 업계 표준 비율 · " + esc(bench.source) + "</p>";
     cm().segments.forEach(function (seg, i) {
       html += "<div class='stream-card' data-si='" + i + "'>" +
         "<div class='st-head'><input value='" + esc(seg.name) + "' data-k='name' />" +
         (cm().segments.length > 1 ? "<button class='icon-btn' data-delseg='" + i + "'>✕</button>" : "") + "</div>" +
-        segParam(i, "pct", "비율 (%)", seg.pct, 0, 100, 1) +
+        segParam(i, "pct", "비율 (%)", seg.pct, 0, 100, 1, bench.bySegmentName[seg.name]) +
         segParam(i, "hoursPerDay", "하루 학습 시간", seg.hoursPerDay, 0, 6, 0.5) +
         segParam(i, "daysPerWeek", "주 학습 일수", seg.daysPerWeek, 0, 7, 1) +
         "</div>";
@@ -58,12 +62,27 @@
       cm().segments.push({ name: "새 유형", pct: 10, hoursPerDay: 1, daysPerWeek: 3 });
       save(); render();
     });
+    document.getElementById("segBenchApply").addEventListener("click", function () {
+      let matched = 0;
+      cm().segments.forEach(function (seg) {
+        const b = bench.bySegmentName[seg.name];
+        if (b != null) { seg.pct = b; matched++; }
+      });
+      if (!matched) { MAIN.toast("이름이 열정/일반/유령 학생과 달라 매칭되는 유형이 없어요"); return; }
+      save(); render();
+      MAIN.toast("업계 표준 비율로 맞췄어요");
+    });
   }
 
-  function segParam(i, k, label, v, min, max, step) {
+  function segParam(i, k, label, v, min, max, step, benchmarkPct) {
+    const marker = benchmarkPct != null
+      ? "<div class='bench-mark' style='left:" + (benchmarkPct - min) / (max - min) * 100 + "%' title='업계 표준 " + benchmarkPct + "%'></div>"
+      : "";
     return "<div class='param'><div class='p-lb'><span>" + label + "</span>" +
       "<input type='number' data-k='" + k + "' value='" + (v || 0) + "' min='" + min + "' max='" + max + "' step='" + step + "' /></div>" +
-      "<input type='range' data-k='" + k + "' value='" + (v || 0) + "' min='" + min + "' max='" + max + "' step='" + step + "' /></div>";
+      "<div class='range-wrap'>" +
+      "<input type='range' data-k='" + k + "' value='" + (v || 0) + "' min='" + min + "' max='" + max + "' step='" + step + "' />" +
+      marker + "</div></div>";
   }
 
   // ---- 오른쪽 위: 기술·단가 가정 ----
@@ -75,6 +94,7 @@
       techParam("problemsPerHour", "시간당 푸는 문제 수", c.problemsPerHour, 1, 30, 1) +
       techParam("followUpCalls", "문제당 후속 호출 (재질문·힌트)", c.followUpCalls, 0, 5, 1) +
       techParam("savingPct", "토큰 절감률 (%) — 앞으로 기술로 줄일 몫", c.savingPct, 0, 90, 5) +
+      techParam("freeUsers", "무료 제공 사용자 — PK/MK (선교사·사역자 자녀, 매출 없음)", c.freeUsers, 0, 3000, 50) +
       "<div class='param'><div class='p-lb'><span>문제당 토큰 (호출 1회 기준)</span></div>" +
       "<div class='fld-row' style='margin-top:8px;'>" +
       tokenInput("fresh", "신규 입력", c.tokensPerProblemCall.fresh) +
@@ -142,9 +162,12 @@
       arpu = users > 0 ? nowRow.revenue / users : 0;
       const contrib = arpu - arpu * (c.feeRate || 0) - cu.blended;
       const costRatio = arpu > 0 ? Math.round(cu.blended / arpu * 100) : null;
+      const freeUsers = c.freeUsers || 0;
       scaleHtml =
         "<div class='tbl-wrap' style='margin-top:16px;'><table><tbody>" +
         rr("이번 달 유료 사용자 (" + esc(sc.name) + ")", users.toLocaleString("ko-KR") + "명") +
+        rr("PK/MK 무료 사용자", freeUsers.toLocaleString("ko-KR") + "명") +
+        rr("총 API 비용 대상 사용자 (유료+무료)", (users + freeUsers).toLocaleString("ko-KR") + "명") +
         rr("이번 달 API 총비용", CALC.fmtWon(nowRow.api)) +
         rr("인당 매출 (ARPU)", CALC.fmtWon(Math.round(arpu))) +
         rr("인당 공헌이익 (매출−수수료−API원가)",

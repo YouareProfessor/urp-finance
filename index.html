@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
-<link rel="stylesheet" href="css/tokens.css?v=7">
-<link rel="stylesheet" href="css/app.css?v=7">
+<link rel="stylesheet" href="css/tokens.css?v=8">
+<link rel="stylesheet" href="css/app.css?v=8">
 </head>
 <body>
 
@@ -199,6 +199,12 @@
 <div class="overlay" id="expModal">
   <div class="modal">
     <h3 id="expModalTitle">지출 추가</h3>
+    <div class="fld"><label>영수증/증빙 (선택 — 올리면 자동으로 채워요)</label>
+      <div class="drop" id="receiptDrop">파일을 끌어다 놓거나 클릭해서 선택
+        <input type="file" id="receiptInput" accept="image/*,.pdf" hidden />
+      </div>
+      <p class="mini-note" id="receiptStatus" style="margin-top:5px;"></p>
+    </div>
     <div class="fld"><label>항목 이름</label><input id="emName" placeholder="예: Claude Team 구독" /></div>
     <div class="fld-row">
       <div class="fld"><label>테마 (우리 분류)</label><select id="emCat"></select></div>
@@ -252,19 +258,20 @@
 <!-- Firebase compat SDK (ca-trip 패턴) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 
-<script src="js/calc.js?v=7"></script>
-<script src="js/firebase.js?v=7"></script>
-<script src="js/auth.js?v=7"></script>
-<script src="js/store.js?v=7"></script>
-<script src="js/charts.js?v=7"></script>
-<script src="js/xlsx.js?v=7"></script>
-<script src="js/ui-dashboard.js?v=7"></script>
-<script src="js/ui-apicost.js?v=7"></script>
-<script src="js/ui-simulator.js?v=7"></script>
-<script src="js/ui-expenses.js?v=7"></script>
-<script src="js/ui-pnl.js?v=7"></script>
-<script src="js/ui-excel.js?v=7"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/calc.js?v=8"></script>
+<script src="js/firebase.js?v=8"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/store.js?v=8"></script>
+<script src="js/charts.js?v=8"></script>
+<script src="js/xlsx.js?v=8"></script>
+<script src="js/ui-dashboard.js?v=8"></script>
+<script src="js/ui-apicost.js?v=8"></script>
+<script src="js/ui-simulator.js?v=8"></script>
+<script src="js/ui-expenses.js?v=8"></script>
+<script src="js/ui-pnl.js?v=8"></script>
+<script src="js/ui-excel.js?v=8"></script>
+<script src="js/main.js?v=8"></script>
 </body>
 </html>

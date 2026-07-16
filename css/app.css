@@ -153,6 +153,11 @@ tr:hover .row-actions{opacity:1;}
 .param .p-lb input{width:110px; text-align:right; border:1px solid var(--line); background:var(--card);
   border-radius:8px; padding:4px 8px; font-size:13px; font-weight:700;}
 .param input[type=range]{width:100%; margin-top:8px; accent-color:var(--brand); height:22px;}
+.param .range-wrap{position:relative;}
+.param .bench-mark{position:absolute; top:8px; left:0; width:22px; height:22px; margin-left:-11px;
+  pointer-events:none; display:flex; align-items:center; justify-content:center;}
+.param .bench-mark::after{content:''; width:8px; height:8px; border-radius:50%; background:var(--ink);
+  box-shadow:0 0 0 2px var(--card), 0 0 0 3px var(--ink);}
 .sim-right .card + .card{margin-top:18px;}
 .cmp-bar{display:flex; align-items:center; gap:10px; margin:14px 0 4px; flex-wrap:wrap;}
 .mini-note{font-size:12.5px; color:var(--muted);}
@@ -213,7 +218,7 @@ tr:hover .row-actions{opacity:1;}
 /* ---------- 보기 전용 모드 ---------- */
 body.ro #expAddBtn, body.ro .row-actions, body.ro #scnAdd, body.ro #streamAdd, body.ro #segAdd,
 body.ro #scnRename, body.ro #scnClone, body.ro #scnDel, body.ro [data-delstream], body.ro [data-delseg],
-body.ro [data-cur], body.ro #dropZone{display:none !important;}
+body.ro [data-cur], body.ro #dropZone, body.ro #receiptDrop{display:none !important;}
 body.ro #whoChip{pointer-events:none; background:var(--paper2);}
 body.ro .param input, body.ro #apiTech input, body.ro #apiSegments input,
 body.ro .stream-card .st-head input, body.ro #cashEdit{pointer-events:none; opacity:.6;}
