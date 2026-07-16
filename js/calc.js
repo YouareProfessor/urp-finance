@@ -22,17 +22,42 @@
   }
 
   // ---- 수익 스트림 ----
-  // stream: {name, price(인당 가격), currency("KRW"|"USD"), users(사용자 수), conv(전환율 0~1), growth(월 성장률 0~1), startOffset(개월)}
-  function streamPayingUsers(stream, m) {
+  // stream: {name, type("sub"|"ads"), price(인당 가격), currency("KRW"|"USD"), users(사용자 수),
+  //   conv(전환율 0~1, sub 전용), growth(월 성장률 0~1), startOffset(개월), pppMultiplier(지역 가격 배수),
+  //   impressionsPerUser(월 광고 노출수, ads 전용), ecpm(1000회당 광고단가, ads 전용)}
+  // type 미지정(기존 데이터)은 "sub"로 취급 — 하위호환.
+  function streamHeadcount(stream, m) {
     const off = stream.startOffset || 0;
     if (m < off) return 0;
     const growth = Math.pow(1 + (stream.growth || 0), m - off);
-    return (stream.users || 0) * growth * (stream.conv == null ? 1 : stream.conv);
+    return (stream.users || 0) * growth;
+  }
+  function streamPayingUsers(stream, m) {
+    if (stream.type === "ads") return 0; // 광고형은 결제자가 아니라 노출 대상
+    return streamHeadcount(stream, m) * (stream.conv == null ? 1 : stream.conv);
+  }
+  // API 비용 계산에 들어갈 "실제 앱을 쓰는 인원" — 구독형은 결제 전환된 인원, 광고형은 전체 인원(전원 사용)
+  function streamActiveUsers(stream, m) {
+    return stream.type === "ads" ? streamHeadcount(stream, m) : streamPayingUsers(stream, m);
   }
   function streamRevenue(stream, m, fxRate) {
     const fx = stream.currency === "USD" ? (fxRate || 1400) : 1;
-    return (stream.price || 0) * fx * streamPayingUsers(stream, m);
+    const ppp = stream.pppMultiplier || 1;
+    if (stream.type === "ads") {
+      const impressions = streamHeadcount(stream, m) * (stream.impressionsPerUser || 0);
+      return (stream.ecpm || 0) * fx * ppp * impressions / 1000;
+    }
+    return (stream.price || 0) * fx * ppp * streamPayingUsers(stream, m);
   }
+
+  // 지역 가격(PPP) 프리셋 — 구매력 기준 추정 배수. 정밀한 시장조사 전까지의 출발점이며 언제든 직접 조정 가능.
+  const REGION_PRESETS = [
+    { code: "KR", label: "🇰🇷 한국", mult: 1.0 },
+    { code: "US", label: "🇺🇸 미국", mult: 1.3 },
+    { code: "JP", label: "🇯🇵 일본", mult: 1.1 },
+    { code: "SEA", label: "🇻🇳 동남아", mult: 0.4 },
+    { code: "IN", label: "🇮🇳 인도", mult: 0.3 }
+  ];
 
   // scenario: {startMonth:"2026-08", months, streams:[...]}  — settings.fxRate로 달러 수익원 환산
   function scenarioSeries(sc, settings) {
@@ -40,12 +65,16 @@
     const n = sc.months || 24;
     const fx = (settings && settings.fxRate) || 1400;
     for (let m = 0; m < n; m++) {
-      let rev = 0, users = 0;
+      let rev = 0, payingUsers = 0, activeUsers = 0;
       (sc.streams || []).forEach(function (st) {
         rev += streamRevenue(st, m, fx);
-        users += streamPayingUsers(st, m);
+        payingUsers += streamPayingUsers(st, m);
+        activeUsers += streamActiveUsers(st, m);
       });
-      out.push({ ym: ymAdd(sc.startMonth, m), revenue: Math.round(rev), payingUsers: Math.round(users) });
+      out.push({
+        ym: ymAdd(sc.startMonth, m), revenue: Math.round(rev),
+        payingUsers: Math.round(payingUsers), activeUsers: Math.round(activeUsers)
+      });
     }
     return out;
   }
@@ -139,16 +168,16 @@
       const act = actuals && actuals[pt.ym];
       const revenue = act && act.revenue != null ? act.revenue : pt.revenue;
       const fixed = monthlyFixedCost(expenses, pt.ym);
-      // 변동비: (유료 사용자 + 무료 제공 사용자 PK/MK) × 인당 API원가 + 결제 수수료
-      // — PK/MK는 매출은 없지만 API는 쓰므로 비용에만 더한다 (실적 월은 costOverride가 전체 비용을 대체)
-      const api = Math.round((pt.payingUsers + (cm.freeUsers || 0)) * cu.blended);
+      // 변동비: (앱을 실제로 쓰는 전체 인원: 구독 결제자 + 광고형 무료 + PK/MK 무료) × 인당 API원가 + 결제 수수료
+      // — 광고형·PK/MK는 매출 방식이 다르거나 없지만 API는 쓰므로 비용에는 다 더한다 (실적 월은 costOverride가 전체 비용을 대체)
+      const api = Math.round((pt.activeUsers + (cm.freeUsers || 0)) * cu.blended);
       const fee = Math.round(revenue * (cm.feeRate || 0));
       const cost = act && act.costOverride != null ? act.costOverride : fixed + api + fee;
       const profit = revenue - cost;
       cum += profit;
       rows.push({
         ym: pt.ym, revenue: revenue, cost: cost, profit: profit, cum: cum,
-        fixed: fixed, api: api, fee: fee, payingUsers: pt.payingUsers,
+        fixed: fixed, api: api, fee: fee, payingUsers: pt.payingUsers, activeUsers: pt.activeUsers,
         isActual: !!act,
         // 현금곡선: 기준월 이전 구간은 표시하지 않음(null)
         cash: ymDiff(pt.ym, cashAsOf) >= 0 ? null : null // 아래에서 채움
@@ -215,7 +244,8 @@
 
   const api = {
     ymAdd: ymAdd, ymDiff: ymDiff, ymLabel: ymLabel,
-    streamRevenue: streamRevenue, streamPayingUsers: streamPayingUsers, scenarioSeries: scenarioSeries,
+    streamRevenue: streamRevenue, streamPayingUsers: streamPayingUsers, streamActiveUsers: streamActiveUsers,
+    streamHeadcount: streamHeadcount, scenarioSeries: scenarioSeries, REGION_PRESETS: REGION_PRESETS,
     defaultCostModel: defaultCostModel, costPerUser: costPerUser, INDUSTRY_BENCHMARK: INDUSTRY_BENCHMARK,
     expenseMonthly: expenseMonthly, monthlyFixedCost: monthlyFixedCost,
     pnlSeries: pnlSeries, breakEven: breakEven, runwayInfo: runwayInfo,

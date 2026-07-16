@@ -6,15 +6,29 @@
 
   // scale: 저장값 → 표시값 배율 (전환율·성장률은 %로 보여주고 소수로 저장)
   // log: 넓은 범위 슬라이더는 로그 눈금 (낮은 구간도 미세 조절 가능)
+  // def: 값이 비어있을 때 보여줄 기본 표시값 (예: pppMultiplier 미설정 = 1배)
+  const PPP_PARAM = { key: "pppMultiplier", label: "지역 가격 배수 (PPP) — 국가별 구매력 추정치", min: 0.2, max: 2, step: 0.05, scale: 1, def: 1, region: true };
   function paramsFor(st) {
     const usd = st.currency === "USD";
+    if (st.type === "ads") {
+      return [
+        { key: "users", label: "무료 이용자 수 (명)", min: 0, max: 3000000, step: 10, scale: 1, log: true },
+        { key: "growth", label: "사용자 월 성장 가정 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
+        { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 },
+        { key: "impressionsPerUser", label: "1인당 월 광고 노출수", min: 0, max: 1000, step: 10, scale: 1, def: 300 },
+        usd ? { key: "ecpm", label: "광고 단가 ($ / 1000회)", min: 0, max: 20, step: 0.1, scale: 1, currencyToggle: true, def: 1.5 }
+            : { key: "ecpm", label: "광고 단가 (원 / 1000회)", min: 0, max: 20000, step: 100, scale: 1, currencyToggle: true, def: 2000 },
+        PPP_PARAM
+      ];
+    }
     return [
       usd ? { key: "price", label: "인당 가격 ($/월)", min: 0, max: 300, step: 0.5, scale: 1, currencyToggle: true }
           : { key: "price", label: "인당 가격 (원/월)", min: 0, max: 300000, step: 500, scale: 1, log: true, currencyToggle: true },
       { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 3000000, step: 10, scale: 1, log: true },
       { key: "conv", label: "유료 전환율 (%)", min: 0, max: 100, step: 1, scale: 100 },
       { key: "growth", label: "사용자 월 성장 가정 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
-      { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 }
+      { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 },
+      PPP_PARAM
     ];
   }
   // 로그 슬라이더 변환: 슬라이더 눈금 0~1000 ↔ 실제값 0~max
@@ -26,6 +40,31 @@
     if (!p.log) return Number(t);
     const raw = Math.pow(p.max + 1, t / 1000) - 1;
     return Math.min(p.max, Math.round(raw / p.step) * p.step);
+  }
+
+  // 유형 전환 시 그 유형에서 쓸 필드가 비어있으면 기본값을 채워, 화면 표시값=실제 계산값이 어긋나지 않게 한다.
+  function applyTypeDefaults(st) {
+    if (st.pppMultiplier == null) st.pppMultiplier = 1;
+    if (st.type === "ads") {
+      if (st.impressionsPerUser == null) st.impressionsPerUser = 300;
+      if (st.ecpm == null) st.ecpm = st.currency === "USD" ? 1.5 : 2000;
+    } else {
+      if (st.price == null) st.price = 9900;
+      if (st.conv == null) st.conv = 0.3;
+    }
+  }
+
+  // 지역 프리셋 칩 — 클릭 한 번으로 배수 설정, 지금 선택된 값과 가까운 프리셋을 강조
+  function regionChips(si, curVal) {
+    let html = "<div style='display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;'>";
+    CALC.REGION_PRESETS.forEach(function (r) {
+      const on = Math.abs(r.mult - curVal) < 0.02;
+      html += "<button type='button' class='scn-chip" + (on ? " on" : "") + "' data-regionset='" + r.mult + "' " +
+        "style='padding:3px 10px; font-size:11px;' title='" + r.label + " 추정 배수 " + r.mult + "배'>" +
+        r.label + " " + r.mult + "×</button>";
+    });
+    html += "</div>";
+    return html;
   }
 
   function render() {
@@ -91,11 +130,14 @@
       (sc.updatedBy ? " · " + esc(sc.updatedBy) + " 수정" : "") + "</p>";
 
     (sc.streams || []).forEach(function (st, si) {
+      const isAds = st.type === "ads";
       html += "<div class='stream-card' data-si='" + si + "'>" +
         "<div class='st-head'><input value='" + esc(st.name) + "' data-p='name' />" +
+        "<button class='scn-chip' data-typetoggle='" + si + "' style='padding:3px 11px; font-size:11.5px;' title='구독형/광고형 전환'>" +
+        (isAds ? "📣 광고형 무료" : "💳 구독") + "</button>" +
         ((sc.streams.length > 1) ? "<button class='icon-btn' data-delstream='" + si + "'>✕</button>" : "") + "</div>";
       paramsFor(st).forEach(function (p) {
-        const raw = st[p.key] == null ? 0 : st[p.key];
+        const raw = st[p.key] == null ? (p.def != null ? p.def : 0) : st[p.key];
         const v = Math.round(raw * p.scale * 100) / 100; // 표시값
         const curBtn = p.currencyToggle
           ? "<button class='scn-chip' data-cur='" + si + "' style='padding:3px 11px; font-size:11.5px;' title='원화/달러 전환'>" +
@@ -103,7 +145,8 @@
           : "";
         html += "<div class='param'><div class='p-lb'><span>" + p.label + " " + curBtn + "</span>" +
           "<input type='number' data-p='" + p.key + "' value='" + v + "' min='" + p.min + "' step='" + p.step + "' /></div>" +
-          "<input type='range' data-p='" + p.key + "' data-log='" + (p.log ? 1 : 0) + "' value='" + toSlider(v, p) + "' min='" + (p.log ? 0 : p.min) + "' max='" + (p.log ? 1000 : p.max) + "' step='" + (p.log ? 1 : p.step) + "' /></div>";
+          (p.region ? regionChips(si, v) : "") +
+          "<div class='range-wrap'><input type='range' data-p='" + p.key + "' data-log='" + (p.log ? 1 : 0) + "' value='" + toSlider(v, p) + "' min='" + (p.log ? 0 : p.min) + "' max='" + (p.log ? 1000 : p.max) + "' step='" + (p.log ? 1 : p.step) + "' /></div></div>";
       });
       html += "</div>";
     });
@@ -139,6 +182,20 @@
         st.currency = st.currency === "USD" ? "KRW" : "USD";
         STORE.saveScenarioNow(sc); render();
       });
+      const typeBtn = cardEl.querySelector("[data-typetoggle]");
+      if (typeBtn) typeBtn.addEventListener("click", function () {
+        const st = sc.streams[si];
+        st.type = st.type === "ads" ? "sub" : "ads";
+        applyTypeDefaults(st);
+        STORE.saveScenarioNow(sc); render();
+      });
+      cardEl.querySelectorAll("[data-regionset]").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          const st = sc.streams[si];
+          st.pppMultiplier = Number(chip.getAttribute("data-regionset"));
+          STORE.saveScenarioNow(sc); render();
+        });
+      });
       const del = cardEl.querySelector("[data-delstream]");
       if (del) del.addEventListener("click", function () {
         if (!confirm("이 수익원을 삭제할까요?")) return;
@@ -149,7 +206,7 @@
 
     document.getElementById("streamAdd").addEventListener("click", function () {
       sc.streams = sc.streams || [];
-      sc.streams.push({ id: STORE.newId("st"), name: "수익원 " + (sc.streams.length + 1), price: 9900, users: 100, conv: 0.3, growth: 0.05, startOffset: 0 });
+      sc.streams.push({ id: STORE.newId("st"), name: "수익원 " + (sc.streams.length + 1), type: "sub", price: 9900, users: 100, conv: 0.3, growth: 0.05, startOffset: 0, pppMultiplier: 1 });
       STORE.saveScenarioNow(sc); render();
     });
     document.getElementById("scnRename").addEventListener("click", function () { openScnModal(sc); });
@@ -197,6 +254,8 @@
       { label: "총비용 (고정+API+수수료)", color: "var(--chart-cost)" },
       { label: "누적손익", color: "var(--ink)", line: true }
     ]);
+    const goApiCostBtn = document.getElementById("goApiCostBtn");
+    if (goApiCostBtn) goApiCostBtn.addEventListener("click", function () { MAIN.goTab("apicost"); });
 
     function kpi(lb, v, cls) {
       return "<div class='kpi' style='cursor:default; padding:16px 18px;'><div class='lb'>" + lb +
@@ -204,19 +263,21 @@
     }
   }
 
-  // 인당 경제성 한 줄: ARPU vs API 원가 vs 공헌이익 (API 원가 탭과 같은 계산)
+  // 인당 경제성 한 줄: ARPU vs 실질 부담원가(광고형·PK/MK 몫 포함) vs 공헌이익 (API 원가 탭과 같은 계산)
   function unitEconNote(rows) {
     const c = S.settings.costModel;
     if (!c) return "";
-    const cu = CALC.costPerUser(c, S.settings.fxRate);
     const row = rows.find(function (r) { return r.payingUsers > 0; });
     if (!row) return "";
     const arpu = row.revenue / row.payingUsers;
-    const contrib = arpu - arpu * (c.feeRate || 0) - cu.blended;
-    return "<p class='mini-note' style='margin-top:12px;'>인당 매출 " + CALC.fmtWonShort(Math.round(arpu)) +
-      " − API 원가 " + CALC.fmtWonShort(cu.blended) +
+    // 유료(구독) 고객 1인당 실질 부담원가 = 이번 달 API 총비용(구독+광고형+PK/MK 다 포함) ÷ 구독 결제자 수
+    const realCostPerPayer = row.api / row.payingUsers;
+    const contrib = arpu - arpu * (c.feeRate || 0) - realCostPerPayer;
+    return "<p class='mini-note' style='margin-top:12px;'>구독자 인당 매출 " + CALC.fmtWonShort(Math.round(arpu)) +
+      " − 실질 부담원가 " + CALC.fmtWonShort(Math.round(realCostPerPayer)) +
       " − 수수료 = 인당 공헌이익 <b class='" + (contrib >= 0 ? "pos" : "neg") + "'>" +
-      CALC.fmtWonShort(Math.round(contrib)) + "</b> · 자세한 조정은 ‘API 원가’ 탭에서</p>";
+      CALC.fmtWonShort(Math.round(contrib)) + "</b> · " +
+      "<button type='button' class='btn ghost sm' id='goApiCostBtn' style='padding:2px 10px; font-size:11.5px; vertical-align:middle;'>세부 조정 → API 원가 탭</button></p>";
   }
 
   // ---- 비교 모드 ----

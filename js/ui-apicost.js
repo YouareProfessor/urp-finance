@@ -95,6 +95,7 @@
       techParam("followUpCalls", "문제당 후속 호출 (재질문·힌트)", c.followUpCalls, 0, 5, 1) +
       techParam("savingPct", "토큰 절감률 (%) — 앞으로 기술로 줄일 몫", c.savingPct, 0, 90, 5) +
       techParam("freeUsers", "무료 제공 사용자 — PK/MK (선교사·사역자 자녀, 매출 없음)", c.freeUsers, 0, 3000, 50) +
+      "<p class='mini-note' style='margin-top:-6px;'>광고로 돈을 버는 무료 사용자는 여기가 아니라 ‘수익 시뮬레이터’에서 수익원을 ‘광고형’으로 추가하세요.</p>" +
       "<div class='param'><div class='p-lb'><span>문제당 토큰 (호출 1회 기준)</span></div>" +
       "<div class='fld-row' style='margin-top:8px;'>" +
       tokenInput("fresh", "신규 입력", c.tokensPerProblemCall.fresh) +
@@ -160,19 +161,25 @@
       const nowRow = rows.find(function (r) { return r.ym === STORE.nowYm(); }) || rows[0];
       users = nowRow.payingUsers;
       arpu = users > 0 ? nowRow.revenue / users : 0;
-      const contrib = arpu - arpu * (c.feeRate || 0) - cu.blended;
-      const costRatio = arpu > 0 ? Math.round(cu.blended / arpu * 100) : null;
       const freeUsers = c.freeUsers || 0;
+      const adsUsers = Math.max(0, nowRow.activeUsers - nowRow.payingUsers);
+      const totalApiUsers = nowRow.activeUsers + freeUsers;
+      // 유료(구독) 고객 1인당 실질 부담원가: 광고형·PK/MK 무료 사용자 몫까지 구독 고객이 나눠 짊어진다고 볼 때의 원가
+      const realCostPerPayer = users > 0 ? nowRow.api / users : cu.blended;
+      const contrib = arpu - arpu * (c.feeRate || 0) - realCostPerPayer;
+      const costRatio = arpu > 0 ? Math.round(realCostPerPayer / arpu * 100) : null;
       scaleHtml =
         "<div class='tbl-wrap' style='margin-top:16px;'><table><tbody>" +
-        rr("이번 달 유료 사용자 (" + esc(sc.name) + ")", users.toLocaleString("ko-KR") + "명") +
+        rr("이번 달 구독(유료) 사용자 (" + esc(sc.name) + ")", users.toLocaleString("ko-KR") + "명") +
+        rr("광고형 무료 사용자 <span class='mini-note'>(수익 시뮬레이터 수익원)</span>", adsUsers.toLocaleString("ko-KR") + "명") +
         rr("PK/MK 무료 사용자", freeUsers.toLocaleString("ko-KR") + "명") +
-        rr("총 API 비용 대상 사용자 (유료+무료)", (users + freeUsers).toLocaleString("ko-KR") + "명") +
+        rr("전체 API 사용자 (구독+광고형+PK/MK)", totalApiUsers.toLocaleString("ko-KR") + "명") +
         rr("이번 달 API 총비용", CALC.fmtWon(nowRow.api)) +
+        rr("구독자 1인당 실질 부담원가 <span class='mini-note'>(무료 사용자 몫 포함)</span>", CALC.fmtWon(Math.round(realCostPerPayer))) +
         rr("인당 매출 (ARPU)", CALC.fmtWon(Math.round(arpu))) +
-        rr("인당 공헌이익 (매출−수수료−API원가)",
+        rr("인당 공헌이익 (매출−수수료−실질 부담원가)",
           "<span class='" + (contrib >= 0 ? "pos" : "neg") + "'>" + CALC.fmtWon(Math.round(contrib)) + "</span>") +
-        (costRatio != null ? rr("매출 대비 API 원가율", costRatio + "%") : "") +
+        (costRatio != null ? rr("매출 대비 실질 원가율", costRatio + "%") : "") +
         "</tbody></table></div>";
     }
 
@@ -184,7 +191,10 @@
     });
 
     box.innerHTML =
-      "<h3 style='font-size:16px;'>원가 결과 <span class='mini-note'>실시간 계산 · 손익표에 자동 반영</span></h3>" +
+      "<div style='display:flex; align-items:center; gap:8px; flex-wrap:wrap;'>" +
+      "<h3 style='font-size:16px; flex:1;'>원가 결과 <span class='mini-note'>실시간 계산 · 손익표에 자동 반영</span></h3>" +
+      "<button class='btn ghost sm' id='goSimBtn'>→ 판매가격·전략 (수익 시뮬레이터)</button>" +
+      "<button class='btn ghost sm' id='goExpBtn'>→ 고정지출</button></div>" +
       "<div class='kpis' style='grid-template-columns:repeat(3,1fr); margin-top:14px;'>" +
       kpi("시간당 토큰 (현재 기술)", cu.tokensPerHour.toLocaleString("ko-KR")) +
       kpi("절감 후 시간당 토큰", cu.tokensPerHourSaved.toLocaleString("ko-KR"),
@@ -197,6 +207,9 @@
       "<thead><tr><th>유형</th><th>비율</th><th>월 학습</th><th>월 문제수</th><th>인당 월 원가</th></tr></thead>" +
       "<tbody>" + segRows + "</tbody></table></div>" +
       scaleHtml;
+
+    document.getElementById("goSimBtn").addEventListener("click", function () { MAIN.goTab("simulator"); });
+    document.getElementById("goExpBtn").addEventListener("click", function () { MAIN.goTab("expenses"); });
 
     function kpi(lb, v, tag) {
       return "<div class='kpi' style='cursor:default; padding:16px 18px;'>" +

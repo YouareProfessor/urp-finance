@@ -280,6 +280,8 @@
       if (rec) document.getElementById("emAccount").value = rec;
     });
     initReceiptUpload();
+    document.getElementById("goApiCostFromExpBtn").addEventListener("click", function () { MAIN.goTab("apicost"); });
+    document.getElementById("goSimFromExpBtn").addEventListener("click", function () { MAIN.goTab("simulator"); });
   }
 
   window.UI_EXPENSES = { render: render, init: init, esc: esc, groupStats: groupStats };

@@ -184,7 +184,7 @@
       name: "시나리오 " + (order + 1),
       color: order % 5, order: order,
       startMonth: nowYm(), months: 24,
-      streams: [{ id: newId("st"), name: "구독 수익", price: 9900, users: 100, conv: 0.3, growth: 0.05, startOffset: 0 }],
+      streams: [{ id: newId("st"), name: "구독 수익", type: "sub", price: 9900, users: 100, conv: 0.3, growth: 0.05, startOffset: 0, pppMultiplier: 1 }],
       notes: ""
     };
   }
