@@ -102,18 +102,32 @@
   // ---- API 변동원가 모델 (기능별) ----
   // 니가교수 앱은 1:1 개념과외·문제풀이(복습카드)·시험 세 기능이 AI 호출 패턴이 서로 완전히 달라서
   // (턴 수·캐시 재사용·이미지 첨부 여부) "문제당 원가 하나"로 뭉뚱그리면 실제와 크게 어긋난다.
-  // 아래 wonPerUnit 기본값은 앱 코드(Tutor.jsx/Study.jsx/Exam.jsx)의 실제 시스템 프롬프트를 토큰화하고
-  // 턴 단위로 시뮬레이션해 나온 값이다(2026-07-16) — 실측이 아니라 코드 구조 기반 시뮬레이션.
-  // Worker+D1 실측 로깅(계획서 Phase 1)이 붙으면 이 값을 실측치로 교체한다.
+  //
+  // ★ 2026-07-28 실측 교체. 이전 값(개념과외 138 / 복습카드 30 / 시험 206)은 코드 구조 기반 시뮬레이션이었고,
+  //   MVP 학생 계정을 붙여 받은 실사용 데이터로 갈아끼웠다. 출처 = yp-cost-dashboard
+  //   (2026-07-27~28 · 학생 4명 · 세션 26 · AI 호출 98건 · 다룬 문제 17개 · 학습 체류 2.0h).
+  //   기능별 실제 입출력 토큰에 공개 단가(Sonnet $3/$15, Haiku $1/$5, 환율 1400)를 적용해 산출.
+  //   ⚠️ 표본이 2일·4명이라 아래 sample 표기를 반드시 같이 읽을 것. 베타에서 갱신한다.
+  const MEASURED = {
+    at: "2026-07-28",
+    source: "yp-cost-dashboard · MVP 학생 4명 · 2026-07-27~28",
+    // study = 문제 하나를 푸는 전 과정(채점·재도전채점·손글씨읽기·힌트·피드백·개념질문·해설질문·지식맵
+    //         + 그 문제를 만든 단원문제생성·자료적재 몫)을 다룬 문제 17개로 나눈 값
+    study: { wonPerUnit: 86, sample: "문제 17개 · 호출 약 80건" },
+    // tutor = 개념강의 세션 1개(7턴) 실측
+    tutor: { wonPerUnit: 294, sample: "세션 1개 — 표본 부족, 참고치" },
+    // exam = 시험 생성 실측(25원) + 8문항 채점을 실측 채점단가(호출당 47원)로 환산(379원)
+    exam: { wonPerUnit: 404, sample: "생성 1회 실측 + 채점은 실측 단가로 환산" }
+  };
   function defaultCostModel() {
     return {
       savingPct: 0,                // 토큰 절감률 % (캐시 활용·모델 라우팅 등 기술 개선으로 조절 — 전 기능에 균일 적용)
       feeRate: 0.033,              // 결제 수수료율 (PG 3.3%, 스토어 결제면 +15%p)
       freeUsers: 500,              // PK/MK 등 무료 제공 사용자(매출 0, API 비용은 발생) — 베타 추정치
       features: {
-        tutor: { name: "1:1 개념과외", unitLabel: "개념 1개(6턴)", wonPerUnit: 138 },
-        study: { name: "문제풀이(복습카드)", unitLabel: "카드 1개", wonPerUnit: 30 },
-        exam: { name: "시험", unitLabel: "8문항 1회", wonPerUnit: 206 }
+        tutor: { name: "1:1 개념과외", unitLabel: "개념 1개(6턴)", wonPerUnit: MEASURED.tutor.wonPerUnit },
+        study: { name: "문제풀이(복습카드)", unitLabel: "카드 1개", wonPerUnit: MEASURED.study.wonPerUnit },
+        exam: { name: "시험", unitLabel: "8문항 1회", wonPerUnit: MEASURED.exam.wonPerUnit }
       },
       segments: [
         { name: "열정 학생", pct: 20, tutorPerMonth: 12, studyPerMonth: 400, examPerMonth: 4 },
@@ -316,7 +330,8 @@
     ymAdd: ymAdd, ymDiff: ymDiff, ymLabel: ymLabel,
     streamRevenue: streamRevenue, streamPayingUsers: streamPayingUsers, streamActiveUsers: streamActiveUsers,
     streamHeadcount: streamHeadcount, scenarioSeries: scenarioSeries, REGION_PRESETS: REGION_PRESETS,
-    defaultCostModel: defaultCostModel, migrateCostModel: migrateCostModel, costPerUser: costPerUser, INDUSTRY_BENCHMARK: INDUSTRY_BENCHMARK,
+    defaultCostModel: defaultCostModel, migrateCostModel: migrateCostModel, costPerUser: costPerUser,
+    INDUSTRY_BENCHMARK: INDUSTRY_BENCHMARK, MEASURED: MEASURED,
     expenseMonthly: expenseMonthly, monthlyFixedCost: monthlyFixedCost,
     pnlSeries: pnlSeries, breakEven: breakEven, runwayInfo: runwayInfo,
     fmtWon: fmtWon, fmtWonShort: fmtWonShort, fmtMonths: fmtMonths

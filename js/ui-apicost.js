@@ -97,8 +97,19 @@
   function renderTech() {
     const box = document.getElementById("apiTech");
     const c = cm();
+    const M = CALC.MEASURED;
+    const isMeasured = FEATURE_ORDER.every(function (k) { return c.features[k].wonPerUnit === M[k].wonPerUnit; });
     box.innerHTML =
-      "<h3 style='font-size:16px;'>기능별 단가 가정 <span class='mini-note'>코드 구조 기반 시뮬레이션(2026-07-16), 실측 아님</span></h3>" +
+      "<div style='display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;'>" +
+      "<h3 style='font-size:16px; flex:1;'>기능별 단가" +
+      (isMeasured ? " <span class='mini-note'>실측 반영됨 (" + M.at + ")</span>"
+                  : " <span class='mini-note'>지금은 우리가 직접 넣은 값</span>") + "</h3>" +
+      (isMeasured ? "" : "<button class='btn ghost sm' id='useMeasured'>📏 실측값으로 갱신</button>") +
+      "</div>" +
+      "<p class='mini-note' style='margin:6px 0 12px;'>실측 출처: " + esc(M.source) +
+      ". 문제풀이 " + M.study.wonPerUnit + "원(" + esc(M.study.sample) + ") · 개념과외 " + M.tutor.wonPerUnit +
+      "원(" + esc(M.tutor.sample) + ") · 시험 " + M.exam.wonPerUnit + "원(" + esc(M.exam.sample) + "). " +
+      "표본이 작으니 베타에서 다시 잰다.</p>" +
       featureRows(c) +
       techParam("savingPct", "토큰 절감률 (%) — 캐시 활용·모델 라우팅 등으로 전 기능에 균일 적용", c.savingPct, 0, 90, 5) +
       techParam("freeUsers", "무료 제공 사용자 — PK/MK (선교사·사역자 자녀, 매출 없음)", c.freeUsers, 0, 3000, 50) +
@@ -117,6 +128,15 @@
         box.querySelectorAll("input[data-t='" + k + "'][data-g='top']").forEach(function (t) { if (t !== inp) t.value = v; });
         save(); renderResults();
       });
+    });
+    // 실측값 적용은 버튼을 눌러야만 일어난다 — 팀이 손으로 맞춰둔 값을 배포만으로 갈아치우지 않기 위해서.
+    const um = document.getElementById("useMeasured");
+    if (um) um.addEventListener("click", function () {
+      const cur = FEATURE_ORDER.map(function (k) { return c.features[k].name + " " + c.features[k].wonPerUnit + "원 → " + M[k].wonPerUnit + "원"; }).join("\n");
+      if (!confirm("기능별 단가를 실측값으로 바꿀까요?\n\n" + cur + "\n\n출처: " + M.source)) return;
+      FEATURE_ORDER.forEach(function (k) { cm().features[k].wonPerUnit = M[k].wonPerUnit; });
+      save(); renderTech(); renderResults();
+      MAIN.toast("실측값으로 갱신했어요");
     });
     document.getElementById("fxRate").addEventListener("input", function () {
       S.settings.fxRate = Number(this.value) || 1400; save(); renderResults();
