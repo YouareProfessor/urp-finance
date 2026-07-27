@@ -51,14 +51,9 @@
 
     unsubs.push(refs.settings.onSnapshot(function (snap) {
       if (snap.exists && !settingsDirty) Object.assign(S.settings, snap.data());
-      // costModel은 기본값 위에 저장값을 깊게 병합 (예전 데이터에 새 필드가 없어도 동작)
-      const def = CALC.defaultCostModel();
-      const saved = S.settings.costModel || {};
-      S.settings.costModel = Object.assign({}, def, saved, {
-        tokensPerProblemCall: Object.assign({}, def.tokensPerProblemCall, saved.tokensPerProblemCall || {}),
-        prices: Object.assign({}, def.prices, saved.prices || {}),
-        segments: (saved.segments && saved.segments.length) ? saved.segments : def.segments
-      });
+      // costModel: 구형(시간 기반) 저장값이면 팀이 라이브에서 조정해둔 실제 계산 결과를 보존해서 이관
+      // (예전 '문제당 원가'를 그대로 복습카드 단가로 흡수 — 배포해도 인당 월원가가 갑자기 안 바뀜)
+      S.settings.costModel = CALC.migrateCostModel(S.settings.costModel, S.settings.fxRate);
       if (!S.settings.fxRate) S.settings.fxRate = 1400;
       FB.setSync("on", "실시간 연결됨");
       onChange("settings");
@@ -178,14 +173,36 @@
   }
   function setWho(name) { S.who = name; localStorage.setItem(LS_WHO, name); }
 
+  // Provee 확정 요금제 (2026-07-28 대표 확정) — 새 시나리오는 실제 상품 구성으로 시작한다.
+  // 고등학생: 결제자가 부모라 매달 나가는 구독. 인강 월 14만·밀당PT 월 38만 아래 가격대.
+  // 대학생: 결제자가 본인이라 시험기간에만 산다 → 기간권 4종. 짧을수록 하루당 단가가 비싸다.
+  // 사용자 수는 전부 자리표시값이니 슬라이더로 우리 가정에 맞게 바꿔 쓸 것.
+  // 대학생 4종은 같은 모집단 1,000명을 공유하며 conv가 "그 시기에 이 상품을 고르는 비율"이다(합 37%).
+  function proveeStreams() {
+    const pass = function (name, price, days, conv) {
+      return {
+        id: newId("st"), name: name, type: "pass", price: price,
+        users: 1000, conv: conv, buysPerYear: 2, daysPerPass: days,
+        growth: 0.05, startOffset: 0, pppMultiplier: 1
+      };
+    };
+    return [
+      { id: newId("st"), name: "고등학생 월 구독", type: "sub", price: 99000, users: 1000, conv: 0.3, growth: 0.05, startOffset: 0, pppMultiplier: 1 },
+      pass("대학생 중간고사 패스 (3주)", 49000, 21, 0.15),
+      pass("대학생 일주일의 전사 (7일)", 29000, 7, 0.10),
+      pass("대학생 3일의 전사", 19000, 3, 0.07),
+      pass("대학생 24시간의 전사", 9900, 1, 0.05)
+    ];
+  }
+
   function defaultScenario(order) {
     return {
       id: newId("scn"),
       name: "시나리오 " + (order + 1),
       color: order % 5, order: order,
       startMonth: nowYm(), months: 24,
-      streams: [{ id: newId("st"), name: "구독 수익", type: "sub", price: 9900, users: 100, conv: 0.3, growth: 0.05, startOffset: 0, pppMultiplier: 1 }],
-      notes: ""
+      streams: proveeStreams(),
+      notes: "Provee 요금제 v1 — 고등 월 99,000원 구독 + 대학생 시험기간 패스 4종. 대학생 4종은 같은 모집단을 공유하니 사용자 수는 같게 두고 전환율만 나눠 조정하세요."
     };
   }
   function defaultSalary() {
@@ -199,6 +216,6 @@
     saveScenarioDebounced: saveScenarioDebounced, saveScenarioNow: saveScenarioNow, deleteScenario: deleteScenario,
     saveExpense: saveExpense, deleteExpense: deleteExpense, saveActual: saveActual,
     activeScenario: activeScenario, newId: newId, setWho: setWho,
-    defaultScenario: defaultScenario, defaultSalary: defaultSalary
+    defaultScenario: defaultScenario, defaultSalary: defaultSalary, proveeStreams: proveeStreams
   };
 })();

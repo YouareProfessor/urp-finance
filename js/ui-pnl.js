@@ -94,10 +94,17 @@
       STORE.saveActual(ym, null).then(function () { MAIN.toast("실적을 지웠어요 — 추정으로 표시됩니다"); });
       return;
     }
-    const costS = prompt("실제 지출도 있다면 입력하세요 (원). 비우면 고정지출 추정을 그대로 씁니다.",
+    const costS = prompt("실제 총지출도 있다면 입력하세요 (원). 비우면 고정지출+API원가 추정을 그대로 씁니다.",
       cur.costOverride != null ? cur.costOverride : "");
     const data = { revenue: Number(rev.replace(/[^0-9.-]/g, "")) || 0 };
-    if (costS !== null && costS.trim() !== "") data.costOverride = Number(costS.replace(/[^0-9.-]/g, "")) || 0;
+    if (costS !== null && costS.trim() !== "") {
+      data.costOverride = Number(costS.replace(/[^0-9.-]/g, "")) || 0;
+    } else {
+      // 총지출 전체가 아니라 API원가만 실측값이 있을 때(예: Worker+D1 로깅 실측) — 고정비·수수료는 추정 유지
+      const apiS = prompt("총지출 대신, API원가만 실측값이 있다면 입력하세요 (원). 비우면 시뮬레이션 가정을 그대로 씁니다.",
+        cur.apiOverride != null ? cur.apiOverride : "");
+      if (apiS !== null && apiS.trim() !== "") data.apiOverride = Number(apiS.replace(/[^0-9.-]/g, "")) || 0;
+    }
     STORE.saveActual(ym, data).then(function () { MAIN.toast("실적을 저장했어요"); });
   }
 

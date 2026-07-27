@@ -21,6 +21,19 @@
         PPP_PARAM
       ];
     }
+    if (st.type === "pass") {
+      return [
+        usd ? { key: "price", label: "패스 1장 가격 ($)", min: 0, max: 300, step: 0.5, scale: 1, currencyToggle: true }
+            : { key: "price", label: "패스 1장 가격 (원)", min: 0, max: 300000, step: 500, scale: 1, log: true, currencyToggle: true },
+        { key: "users", label: "예상 사용자 수 (명)", min: 0, max: 3000000, step: 10, scale: 1, log: true },
+        { key: "conv", label: "구매 전환율 (%)", min: 0, max: 100, step: 1, scale: 100 },
+        { key: "buysPerYear", label: "1인당 연간 구매 횟수 (회)", min: 0, max: 12, step: 0.5, scale: 1, def: 2 },
+        { key: "daysPerPass", label: "패스 1장 유효 기간 (일)", min: 1, max: 90, step: 1, scale: 1, def: 21 },
+        { key: "growth", label: "사용자 월 성장 가정 (%)", min: 0, max: 30, step: 0.5, scale: 100 },
+        { key: "startOffset", label: "시작 시점 (개월 뒤)", min: 0, max: 23, step: 1, scale: 1 },
+        PPP_PARAM
+      ];
+    }
     return [
       usd ? { key: "price", label: "인당 가격 ($/월)", min: 0, max: 300, step: 0.5, scale: 1, currencyToggle: true }
           : { key: "price", label: "인당 가격 (원/월)", min: 0, max: 300000, step: 500, scale: 1, log: true, currencyToggle: true },
@@ -51,7 +64,31 @@
     } else {
       if (st.price == null) st.price = 9900;
       if (st.conv == null) st.conv = 0.3;
+      if (st.type === "pass") {
+        if (st.buysPerYear == null) st.buysPerYear = 2;   // 중간·기말 2회
+        if (st.daysPerPass == null) st.daysPerPass = 21;  // 3주 패스
+      }
     }
+  }
+  // 유형 순환: 구독 → 기간권 → 광고형 → 구독
+  const TYPE_ORDER = ["sub", "pass", "ads"];
+  const TYPE_LABEL = { sub: "💳 구독", pass: "🎟 기간권", ads: "📣 광고형 무료" };
+  function nextType(t) {
+    const i = TYPE_ORDER.indexOf(t === "ads" ? "ads" : (t === "pass" ? "pass" : "sub"));
+    return TYPE_ORDER[(i + 1) % TYPE_ORDER.length];
+  }
+
+  // 기간권은 "1년에 몇 번 사는가"가 월 매출로 접히는 과정이 눈에 안 보여서 오해가 생긴다.
+  // 접힌 결과(월 결제자·월 매출·평균 동시 사용자)를 카드 안에 바로 펼쳐 보여준다.
+  function passNote(st) {
+    const pay = CALC.streamPayingUsers(st, st.startOffset || 0);
+    const act = CALC.streamActiveUsers(st, st.startOffset || 0);
+    const rev = CALC.streamRevenue(st, st.startOffset || 0, S.settings.fxRate);
+    return "<p class='mini-note' style='margin-top:10px; line-height:1.7;'>" +
+      "월 환산 → 결제 <b>" + Math.round(pay).toLocaleString("ko-KR") + "건</b> · " +
+      "매출 <b>" + CALC.fmtWonShort(rev) + "</b> · " +
+      "앱을 실제로 쓰는 평균 인원 <b>" + Math.round(act).toLocaleString("ko-KR") + "명</b><br>" +
+      "패스는 유효 기간에만 앱을 쓰므로 API 원가도 그만큼만 잡힙니다. 시험 시즌 쏠림은 연 평균으로 폈어요.</p>";
   }
 
   // 지역 프리셋 칩 — 클릭 한 번으로 배수 설정, 지금 선택된 값과 가까운 프리셋을 강조
@@ -130,11 +167,11 @@
       (sc.updatedBy ? " · " + esc(sc.updatedBy) + " 수정" : "") + "</p>";
 
     (sc.streams || []).forEach(function (st, si) {
-      const isAds = st.type === "ads";
+      const curType = st.type === "ads" ? "ads" : (st.type === "pass" ? "pass" : "sub");
       html += "<div class='stream-card' data-si='" + si + "'>" +
         "<div class='st-head'><input value='" + esc(st.name) + "' data-p='name' />" +
-        "<button class='scn-chip' data-typetoggle='" + si + "' style='padding:3px 11px; font-size:11.5px;' title='구독형/광고형 전환'>" +
-        (isAds ? "📣 광고형 무료" : "💳 구독") + "</button>" +
+        "<button class='scn-chip' data-typetoggle='" + si + "' style='padding:3px 11px; font-size:11.5px;' title='구독 → 기간권 → 광고형 순서로 전환'>" +
+        TYPE_LABEL[curType] + "</button>" +
         ((sc.streams.length > 1) ? "<button class='icon-btn' data-delstream='" + si + "'>✕</button>" : "") + "</div>";
       paramsFor(st).forEach(function (p) {
         const raw = st[p.key] == null ? (p.def != null ? p.def : 0) : st[p.key];
@@ -148,9 +185,13 @@
           (p.region ? regionChips(si, v) : "") +
           "<div class='range-wrap'><input type='range' data-p='" + p.key + "' data-log='" + (p.log ? 1 : 0) + "' value='" + toSlider(v, p) + "' min='" + (p.log ? 0 : p.min) + "' max='" + (p.log ? 1000 : p.max) + "' step='" + (p.log ? 1 : p.step) + "' /></div></div>";
       });
+      if (curType === "pass") html += passNote(st);
       html += "</div>";
     });
-    html += "<div style='margin-top:14px;'><button class='btn sm' id='streamAdd'>+ 수익원 추가</button></div>";
+    html += "<div style='margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;'>" +
+      "<button class='btn sm' id='streamAdd'>+ 수익원 추가</button>" +
+      "<button class='btn ghost sm' id='streamPreset' title='고등 월 99,000원 구독 + 대학생 시험기간 패스 4종을 새 시나리오로 만듭니다'>📋 Provee 요금제 불러오기</button>" +
+      "</div>";
     left.innerHTML = html;
 
     // 파라미터 바인딩 (range↔number 쌍, 즉시 재계산 + 디바운스 저장)
@@ -185,7 +226,7 @@
       const typeBtn = cardEl.querySelector("[data-typetoggle]");
       if (typeBtn) typeBtn.addEventListener("click", function () {
         const st = sc.streams[si];
-        st.type = st.type === "ads" ? "sub" : "ads";
+        st.type = nextType(st.type);
         applyTypeDefaults(st);
         STORE.saveScenarioNow(sc); render();
       });
@@ -208,6 +249,16 @@
       sc.streams = sc.streams || [];
       sc.streams.push({ id: STORE.newId("st"), name: "수익원 " + (sc.streams.length + 1), type: "sub", price: 9900, users: 100, conv: 0.3, growth: 0.05, startOffset: 0, pppMultiplier: 1 });
       STORE.saveScenarioNow(sc); render();
+    });
+    // 기존 시나리오는 건드리지 않고 새 시나리오로만 얹는다 — 팀이 조정해둔 값이 사라지면 안 되므로.
+    document.getElementById("streamPreset").addEventListener("click", function () {
+      if (!confirm("Provee 요금제(고등 월 99,000원 + 대학생 패스 4종)를 새 시나리오로 만들까요?\n지금 시나리오는 그대로 남습니다.")) return;
+      const fresh = STORE.defaultScenario(S.scenarios.length);
+      fresh.name = "Provee 요금제 v1";
+      STORE.saveScenarioNow(fresh).then(function () {
+        STORE.saveSettings({ activeScenarioId: fresh.id });
+        MAIN.toast("Provee 요금제 시나리오를 만들었어요");
+      });
     });
     document.getElementById("scnRename").addEventListener("click", function () { openScnModal(sc); });
     document.getElementById("scnClone").addEventListener("click", function () {

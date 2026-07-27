@@ -1,6 +1,6 @@
 /* ui-apicost.js — API 변동원가 인터랙티브 보드.
-   사용자 구성(세그먼트) × 기술 가정(토큰·단가·절감률) → 인당 월원가 → 손익 자동 반영.
-   기본값은 니가교수_API원가_측정템플릿.xlsx 실측(문제당 54.18원). */
+   사용자 구성(세그먼트) × 기능별 단가(개념과외/문제풀이/시험) → 인당 월원가 → 손익 자동 반영.
+   기본값은 니가교수 앱 코드 구조 기반 시뮬레이션(2026-07-16), 실측 아님 — Worker+D1 로깅 도입 후 실측치로 교체 예정. */
 (function () {
   "use strict";
   const S = STORE.S;
@@ -36,8 +36,9 @@
         "<div class='st-head'><input value='" + esc(seg.name) + "' data-k='name' />" +
         (cm().segments.length > 1 ? "<button class='icon-btn' data-delseg='" + i + "'>✕</button>" : "") + "</div>" +
         segParam(i, "pct", "비율 (%)", seg.pct, 0, 100, 1, bench.bySegmentName[seg.name]) +
-        segParam(i, "hoursPerDay", "하루 학습 시간", seg.hoursPerDay, 0, 6, 0.5) +
-        segParam(i, "daysPerWeek", "주 학습 일수", seg.daysPerWeek, 0, 7, 1) +
+        segParam(i, "tutorPerMonth", "월 개념과외 (개)", seg.tutorPerMonth, 0, 60, 1) +
+        segParam(i, "studyPerMonth", "월 복습카드 (개)", seg.studyPerMonth, 0, 1000, 10) +
+        segParam(i, "examPerMonth", "월 시험 (회)", seg.examPerMonth, 0, 20, 1) +
         "</div>";
     });
     html += "<div style='margin-top:12px; display:flex; align-items:center; gap:10px;'>" +
@@ -66,7 +67,7 @@
       });
     });
     box.querySelector("[data-segadd]").addEventListener("click", function () {
-      cm().segments.push({ name: "새 유형", pct: 10, hoursPerDay: 1, daysPerWeek: 3 });
+      cm().segments.push({ name: "새 유형", pct: 10, tutorPerMonth: 4, studyPerMonth: 100, examPerMonth: 1 });
       save(); renderSegments(cid);
     });
     box.querySelector("[data-segbench]").addEventListener("click", function () {
@@ -92,44 +93,28 @@
       marker + "</div></div>";
   }
 
-  // ---- 오른쪽 위: 기술·단가 가정 ----
+  // ---- 오른쪽 위: 기술·단가 가정 (기능별) ----
   function renderTech() {
     const box = document.getElementById("apiTech");
     const c = cm();
     box.innerHTML =
-      "<h3 style='font-size:16px;'>기술·단가 가정 <span class='mini-note'>측정 템플릿 실측 기준, 보수적으로</span></h3>" +
-      techParam("problemsPerHour", "시간당 푸는 문제 수", c.problemsPerHour, 1, 30, 1) +
-      techParam("followUpCalls", "문제당 후속 호출 (재질문·힌트)", c.followUpCalls, 0, 5, 1) +
-      techParam("savingPct", "토큰 절감률 (%) — 앞으로 기술로 줄일 몫", c.savingPct, 0, 90, 5) +
+      "<h3 style='font-size:16px;'>기능별 단가 가정 <span class='mini-note'>코드 구조 기반 시뮬레이션(2026-07-16), 실측 아님</span></h3>" +
+      featureRows(c) +
+      techParam("savingPct", "토큰 절감률 (%) — 캐시 활용·모델 라우팅 등으로 전 기능에 균일 적용", c.savingPct, 0, 90, 5) +
       techParam("freeUsers", "무료 제공 사용자 — PK/MK (선교사·사역자 자녀, 매출 없음)", c.freeUsers, 0, 3000, 50) +
       "<p class='mini-note' style='margin-top:-6px;'>광고로 돈을 버는 무료 사용자는 여기가 아니라 ‘수익 시뮬레이터’에서 수익원을 ‘광고형’으로 추가하세요.</p>" +
-      "<div class='param'><div class='p-lb'><span>문제당 토큰 (호출 1회 기준)</span></div>" +
-      "<div class='fld-row' style='margin-top:8px;'>" +
-      tokenInput("fresh", "신규 입력", c.tokensPerProblemCall.fresh) +
-      tokenInput("cacheRead", "캐시 읽기", c.tokensPerProblemCall.cacheRead) + "</div>" +
-      "<div class='fld-row' style='margin-top:8px;'>" +
-      tokenInput("cacheWrite", "캐시 쓰기", c.tokensPerProblemCall.cacheWrite) +
-      tokenInput("out", "출력", c.tokensPerProblemCall.out) + "</div></div>" +
-      "<div class='param'><div class='p-lb'><span>단가 (USD / 100만 토큰 · Sonnet 기준)</span></div>" +
-      "<div class='fld-row' style='margin-top:8px;'>" +
-      priceInput("fresh", "신규 입력", c.prices.fresh) + priceInput("cacheRead", "캐시 읽기", c.prices.cacheRead) + "</div>" +
-      "<div class='fld-row' style='margin-top:8px;'>" +
-      priceInput("cacheWrite", "캐시 쓰기", c.prices.cacheWrite) + priceInput("out", "출력", c.prices.out) + "</div></div>" +
       "<div class='fld-row' style='margin-top:14px;'>" +
       "<div class='fld'><label>환율 (원/달러)</label><input type='number' id='fxRate' value='" + (S.settings.fxRate || 1400) + "' step='10' /></div>" +
       "<div class='fld'><label>결제 수수료율 (%)</label><input type='number' id='feeRate' value='" + Math.round((c.feeRate || 0) * 1000) / 10 + "' step='0.1' min='0' max='30' /></div>" +
       "</div>";
 
+    bindFeatureInputs(box, renderResults);
     box.querySelectorAll("input[data-t]").forEach(function (inp) {
       inp.addEventListener("input", function () {
-        const k = inp.getAttribute("data-t"), grp = inp.getAttribute("data-g");
+        const k = inp.getAttribute("data-t");
         const v = Number(inp.value) || 0;
-        if (grp === "tok") cm().tokensPerProblemCall[k] = v;
-        else if (grp === "price") cm().prices[k] = v;
-        else {
-          cm()[k] = v;
-          box.querySelectorAll("input[data-t='" + k + "'][data-g='top']").forEach(function (t) { if (t !== inp) t.value = v; });
-        }
+        cm()[k] = v;
+        box.querySelectorAll("input[data-t='" + k + "'][data-g='top']").forEach(function (t) { if (t !== inp) t.value = v; });
         save(); renderResults();
       });
     });
@@ -141,14 +126,37 @@
     });
   }
 
-  // 빠른조정 팝업용 — 자주 만지는 4개 레버 + 실시간 인당원가 미리보기만. 토큰·단가·환율 등 세부값은 API 원가 탭에서.
+  // 기능별(개념과외/문제풀이/시험) 단가 입력 행 — apiTech·빠른조정 팝업 공용
+  function featureRows(c) {
+    let html = "";
+    FEATURE_ORDER.forEach(function (k) {
+      const f = c.features[k];
+      html += "<div class='param'><div class='p-lb'><span>" + esc(f.name) + " <span class='mini-note'>(" + esc(f.unitLabel) + ")</span></span>" +
+        "<input type='number' data-feat='" + k + "' value='" + (f.wonPerUnit || 0) + "' min='0' step='1' /></div>" +
+        "<input type='range' data-feat='" + k + "' value='" + (f.wonPerUnit || 0) + "' min='0' max='400' step='1' /></div>";
+    });
+    return html;
+  }
+  function bindFeatureInputs(box, onChange) {
+    box.querySelectorAll("input[data-feat]").forEach(function (inp) {
+      inp.addEventListener("input", function () {
+        const k = inp.getAttribute("data-feat");
+        const v = Number(inp.value) || 0;
+        cm().features[k].wonPerUnit = v;
+        box.querySelectorAll("input[data-feat='" + k + "']").forEach(function (t) { if (t !== inp) t.value = v; });
+        save(); onChange();
+      });
+    });
+  }
+  const FEATURE_ORDER = ["tutor", "study", "exam"];
+
+  // 빠른조정 팝업용 — 기능별 단가 + 절감률·PK/MK + 실시간 인당원가 미리보기. 세부(환율·수수료 등)는 API 원가 탭에서.
   function renderTechQuick(containerId) {
     const box = document.getElementById(containerId);
     if (!box) return;
     const c = cm();
     box.innerHTML =
-      techParam("problemsPerHour", "시간당 푸는 문제 수", c.problemsPerHour, 1, 30, 1) +
-      techParam("followUpCalls", "문제당 후속 호출 (재질문·힌트)", c.followUpCalls, 0, 5, 1) +
+      featureRows(c) +
       techParam("savingPct", "토큰 절감률 (%)", c.savingPct, 0, 90, 5) +
       techParam("freeUsers", "무료 제공 사용자 — PK/MK", c.freeUsers, 0, 3000, 50) +
       "<p class='mini-note' id='acmPreview' style='margin-top:10px; font-weight:700;'></p>";
@@ -158,6 +166,7 @@
       const p = box.querySelector("#acmPreview");
       if (p) p.textContent = "인당 월 원가(가중평균): " + CALC.fmtWon(cu.blended);
     }
+    bindFeatureInputs(box, refreshPreview);
     box.querySelectorAll("input[data-t]").forEach(function (inp) {
       inp.addEventListener("input", function () {
         const k = inp.getAttribute("data-t");
@@ -174,12 +183,6 @@
     return "<div class='param'><div class='p-lb'><span>" + label + "</span>" +
       "<input type='number' data-t='" + k + "' data-g='top' value='" + (v || 0) + "' min='" + min + "' step='" + step + "' /></div>" +
       "<input type='range' data-t='" + k + "' data-g='top' value='" + (v || 0) + "' min='" + min + "' max='" + max + "' step='" + step + "' /></div>";
-  }
-  function tokenInput(k, label, v) {
-    return "<div class='fld' style='margin-bottom:0;'><label>" + label + "</label><input type='number' data-t='" + k + "' data-g='tok' value='" + (v || 0) + "' min='0' step='100' /></div>";
-  }
-  function priceInput(k, label, v) {
-    return "<div class='fld' style='margin-bottom:0;'><label>" + label + "</label><input type='number' data-t='" + k + "' data-g='price' value='" + (v || 0) + "' min='0' step='0.05' /></div>";
   }
 
   // ---- 오른쪽 아래: 결과 ----
@@ -222,9 +225,12 @@
     let segRows = "";
     cu.perSeg.forEach(function (s) {
       segRows += "<tr><td>" + esc(s.name) + "</td><td class='num'>" + Math.round(s.pct / cu.sumPct * 100) + "%</td>" +
-        "<td class='num'>" + Math.round(s.hoursMonth) + "시간</td><td class='num'>" + s.problemsMonth.toLocaleString("ko-KR") + "문제</td>" +
+        "<td class='num'>" + s.tutorPerMonth.toLocaleString("ko-KR") + "개</td>" +
+        "<td class='num'>" + s.studyPerMonth.toLocaleString("ko-KR") + "개</td>" +
+        "<td class='num'>" + s.examPerMonth.toLocaleString("ko-KR") + "회</td>" +
         "<td class='num'>" + CALC.fmtWon(s.costMonth) + "</td></tr>";
     });
+    const feat = c.features;
 
     box.innerHTML =
       "<div style='display:flex; align-items:center; gap:8px; flex-wrap:wrap;'>" +
@@ -232,15 +238,16 @@
       "<button class='btn ghost sm' id='goSimBtn'>→ 판매가격·전략 (수익 시뮬레이터)</button>" +
       "<button class='btn ghost sm' id='goExpBtn'>→ 고정지출</button></div>" +
       "<div class='kpis' style='grid-template-columns:repeat(3,1fr); margin-top:14px;'>" +
-      kpi("시간당 토큰 (현재 기술)", cu.tokensPerHour.toLocaleString("ko-KR")) +
-      kpi("절감 후 시간당 토큰", cu.tokensPerHourSaved.toLocaleString("ko-KR"),
+      kpi(feat.tutor.name + " 단가", CALC.fmtWonShort(Math.round(feat.tutor.wonPerUnit * cu.savingEff)),
+        c.savingPct > 0 ? "−" + c.savingPct + "%" : null) +
+      kpi(feat.study.name + " 단가", CALC.fmtWonShort(Math.round(feat.study.wonPerUnit * cu.savingEff)),
         c.savingPct > 0 ? "−" + c.savingPct + "%" : null) +
       kpi("인당 월 원가 (가중평균)", CALC.fmtWonShort(cu.blended)) +
       "</div>" +
-      "<p class='mini-note' style='margin-top:10px;'>문제당 비용 " + (Math.round(cu.costPerProblemKRW * 10) / 10) + "원 · 문제당 토큰 " +
-      cu.tokensPerProblem.toLocaleString("ko-KR") + " (후속 호출 포함)</p>" +
+      "<p class='mini-note' style='margin-top:10px;'>" + feat.exam.name + "(" + esc(feat.exam.unitLabel) + ") 단가 " +
+      CALC.fmtWon(Math.round(feat.exam.wonPerUnit * cu.savingEff)) + " · 기본값은 코드 구조 기반 시뮬레이션(2026-07-16), 실측 아님</p>" +
       "<div class='tbl-wrap' style='margin-top:14px;'><table>" +
-      "<thead><tr><th>유형</th><th>비율</th><th>월 학습</th><th>월 문제수</th><th>인당 월 원가</th></tr></thead>" +
+      "<thead><tr><th>유형</th><th>비율</th><th>월 개념과외</th><th>월 복습카드</th><th>월 시험</th><th>인당 월 원가</th></tr></thead>" +
       "<tbody>" + segRows + "</tbody></table></div>" +
       scaleHtml;
 

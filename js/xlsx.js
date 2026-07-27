@@ -72,29 +72,25 @@
       const cmodel = S.settings.costModel || CALC.defaultCostModel();
       const cu = CALC.costPerUser(cmodel, S.settings.fxRate);
       const aoa4 = [
-        ["API 원가 모델 (측정 템플릿 기반, 보수적 가정)"],
+        ["API 원가 모델 (기능별, 코드 구조 기반 시뮬레이션 2026-07-16, 실측 아님)"],
         [],
-        ["시간당 푸는 문제 수", cmodel.problemsPerHour],
-        ["문제당 후속 호출", cmodel.followUpCalls],
         ["토큰 절감률 (%)", cmodel.savingPct],
         ["결제 수수료율 (%)", Math.round((cmodel.feeRate || 0) * 1000) / 10],
         ["환율 (원/달러)", S.settings.fxRate || 1400],
+        ["PK/MK 무료 사용자", cmodel.freeUsers],
         [],
-        ["문제당 토큰 (호출 1회)", "신규 " + cmodel.tokensPerProblemCall.fresh, "캐시읽기 " + cmodel.tokensPerProblemCall.cacheRead,
-          "캐시쓰기 " + (cmodel.tokensPerProblemCall.cacheWrite || 0), "출력 " + cmodel.tokensPerProblemCall.out],
-        ["단가 (USD/100만 토큰)", "신규 " + cmodel.prices.fresh, "캐시읽기 " + cmodel.prices.cacheRead,
-          "캐시쓰기 " + cmodel.prices.cacheWrite, "출력 " + cmodel.prices.out],
+        ["기능", "단위", "단가(KRW)"],
+        [cmodel.features.tutor.name, cmodel.features.tutor.unitLabel, cmodel.features.tutor.wonPerUnit],
+        [cmodel.features.study.name, cmodel.features.study.unitLabel, cmodel.features.study.wonPerUnit],
+        [cmodel.features.exam.name, cmodel.features.exam.unitLabel, cmodel.features.exam.wonPerUnit],
         [],
-        ["시간당 토큰 (현재 기술)", cu.tokensPerHour],
-        ["시간당 토큰 (절감 후)", cu.tokensPerHourSaved],
-        ["문제당 비용 (KRW)", Math.round(cu.costPerProblemKRW * 100) / 100],
         ["인당 월 원가 가중평균 (KRW)", cu.blended],
         [],
-        ["유형", "비율(%)", "하루 시간", "주 일수", "월 문제수", "인당 월 원가(KRW)"]
+        ["유형", "비율(%)", "월 개념과외", "월 복습카드", "월 시험", "인당 월 원가(KRW)"]
       ];
       cmodel.segments.forEach(function (s, i) {
         const ps = cu.perSeg[i];
-        aoa4.push([s.name, s.pct, s.hoursPerDay, s.daysPerWeek, ps.problemsMonth, ps.costMonth]);
+        aoa4.push([s.name, s.pct, s.tutorPerMonth, s.studyPerMonth, s.examPerMonth, ps.costMonth]);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa4), "원가모델");
 
